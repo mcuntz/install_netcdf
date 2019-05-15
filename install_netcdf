@@ -1,0 +1,1494 @@
+#!/bin/bash
+#
+# Install open source packages to work with netCDF and openMPI on Mac OS X and Linux.
+#
+# The script was initially written to install netCDF4 (hence its name) and all its
+# dependencies to be used with different Fortran compilers, as well as some netCDF
+# tools such as cdo, nco and ncview.
+#
+# It is also used to install missing packages locally on computing clusters. For example,
+# a cluster might have the netCDF C-library installed but not the Fortran version.
+#
+# Set parameters in Setup section below, as well as directories to packages that are already installed.
+#
+# Prerequisites:          curl, c and c++ compilers, pkg-config for nco.
+# Optional prerequisites: fortran compiler (e.g. gfortran) for netcdf3 and netcdf4-fortran
+#                         java compiler for antlr2, i.e. ncap2 of nco
+#
+# The script was tested on Mac OS X 10.9 through 10.11 (Mavericks, Yosemite, El Capitan).
+# It was not tested on Ubuntu for quite a while.
+#
+# Dependencies are:
+#   hdf5            <- zlib, szip
+#   netcdf4         <- hdf5
+#   netcdf4_fortran <- netcdf4
+#   grib_api        <- netcdf4, jasper, libpng
+#     or
+#   eccodes         <- netcdf4, jasper, libpng
+#   cdo             <- netcdf4, proj4, grib_api or eccodes, udunits
+#   nco             <- netcdf4, gsl, udunits, pkg-config, antlr v2 (not v3/4) for ncap2
+#   ncview          <- netcdf4, udunits
+#   tiff            <- jpeg
+#   ffmpeg          <- yasm
+#
+# The websites to check for the latest versions are:
+#   zlib              - http://zlib.net
+#   openssl           - https://www.openssl.org/source/
+#   szip              - http://www.hdfgroup.org/ftp/lib-external/szip/
+#   hdf5              - http://www.hdfgroup.org/ftp/HDF5/releases/
+#   netcdf4/_fortran  - https://www.unidata.ucar.edu/downloads/netcdf
+#   netcdf3           - http://www.unidata.ucar.edu/downloads/netcdf/netcdf-3_6_3
+#   udunits           - ftp://ftp.unidata.ucar.edu/pub/udunits/
+#   libpng            - http://sourceforge.net/projects/libpng/files/
+#   libjpeg           - http://www.ijg.org/files/
+#   tiff              - https://download.osgeo.org/libtiff/
+#   proj4             - https://download.osgeo.org/proj/
+#   jasper            - http://www.ece.uvic.ca/~frodo/jasper/
+#   grib_api          - https://software.ecmwf.int/wiki/display/GRIB/Releases
+#   eccodes           - https://software.ecmwf.int/wiki/display/ECC/Releases
+#   cdo               - https://code.zmaw.de/projects/cdo/files
+#   ncview            - ftp://cirrus.ucsd.edu/pub/ncview/
+#   gsl               - ftp://ftp.gnu.org/gnu/gsl/
+#   antlr             - http://www.antlr2.org/download.html
+#   nco               - http://nco.sourceforge.net/src/
+#   openmpi           - http://www.open-mpi.org
+#   mpich             - http://www.mpich.org/downloads/
+#   geos              - https://download.osgeo.org/geos
+#   gdal              - https://trac.osgeo.org/gdal/wiki/DownloadSource
+#   yasm              - http://yasm.tortall.net/Download.html
+#   ffmpeg            - http://ffmpeg.org/releases/
+#   p7zip             - http://sourceforge.net/projects/p7zip/
+#   hdf4              - http://www.hdfgroup.org/release4/obtain.html
+#   enscript          - http://ftp.gnu.org/gnu/enscript
+#   htop              - http://hisham.hm/htop/
+#
+# Check for all latest versions by copying to open/xdg-open:
+# http://zlib.net https://www.openssl.org/source/ http://www.hdfgroup.org/ftp/lib-external/szip/ http://www.hdfgroup.org/ftp/HDF5/releases/ https://www.unidata.ucar.edu/downloads/netcdf http://www.unidata.ucar.edu/downloads/netcdf/netcdf-3_6_3 ftp://ftp.unidata.ucar.edu/pub/udunits/ http://sourceforge.net/projects/libpng/files/ http://www.ijg.org/files/ https://download.osgeo.org/libtiff/ https://download.osgeo.org/proj/ http://www.ece.uvic.ca/~frodo/jasper/ https://software.ecmwf.int/wiki/display/GRIB/Releases https://software.ecmwf.int/wiki/display/ECC/Releases https://code.zmaw.de/projects/cdo/files ftp://cirrus.ucsd.edu/pub/ncview/ ftp://ftp.gnu.org/gnu/gsl/ http://www.antlr2.org/download.html http://nco.sourceforge.net/src/ http://www.open-mpi.org http://www.mpich.org/downloads/ https://download.osgeo.org/geos https://trac.osgeo.org/gdal/wiki/DownloadSource http://yasm.tortall.net/Download.html http://ffmpeg.org/releases/ http://sourceforge.net/projects/p7zip/ http://www.hdfgroup.org/release4/obtain.html http://ftp.gnu.org/gnu/enscript http://hisham.hm/htop/releases/
+#
+# Note
+# - Do not untabify this script because the netcdf_fortran libtool patch will not work anymore.
+# - If some libraries are already installed such as png, set dolibpng=0 below.
+#   One can set EXTRA_CPPFLAGS and EXTRA_LDFLAGS if the compilers do not find it automatically,
+#   for example: EXTRA_LDFLAGS='-L/opt/local'
+#
+# Note on Mac OS X using homebrew
+#   install homebrew with
+#     /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+#   install the following packages via homebrew by typing: brew install <PACKAGE>
+#     brew install gcc netcdf cmake udunits proj jasper gsl
+#     brew cask install java
+#     brew install antlr@2 geos gdal ffmpeg enscript htop
+#     brew install nco
+#     brew install ncview
+#   Set CMAKE below to cmake.
+#   All libraries should link into /usr/local. If a package cannot link properly then try
+#     brew link <PACKAGE>
+#   This normally shows a directory which cannot be written. Set owner to username, e.g.
+#     sudo chown ${USER} /usr/local/share/man/man3
+#   Then, do not select the instaled packages below
+#     dozlib=0
+#     doszip=0
+#     dohdf5=0
+#     donetcdf4=0
+#     doudunits=0
+#     dolibpng=0
+#     dolibjpeg=0
+#     dotiff=0
+#     doproj4=0
+#     dojasper=0
+#     dogsl=0
+#     doantlr=0
+#     donco=0
+#     doncview=0
+#   Then use the script to install all libraries that provide Fortran interfaces with all your Fortran compilers,
+#   such as netcdf4-fortran, netcdf3, openmpi, mpich, giving the list of your Fortran compilers below, e.g.
+#     fortran_compilers="gfortran nagfor pgfortran ifort"
+#   Also install cdo with the script because of the dropped science support of homebrew.
+#   Homebrew can also be used exclusivley for the additional packages
+#     geos
+#     gdal
+#     ffmpeg
+#     enscript
+#     htop
+#
+# Note on (Scientific) Linux
+#   zlib installed by default.
+#   Install antlr-C++ bindings from paket manager.
+#
+# Note on Ubuntu
+#   install the following software from package management via the command line
+#   by typing sudo apt install <PACKAGE>
+#     zlib [installed by default on Ubuntu]
+#       or
+#     libz-mingw-w64 [on Ubuntu on Windows]
+#     libpng-dev
+#     libtiff-dev [installs libjpeg-dev]
+#     libantlr-dev
+#     libexpat-dev
+#     libcurl4-openssl-dev
+#     xorg-dev
+#     cmake
+#     bison
+#   Therefore do not select the packages below
+#     dozlib=0
+#     dolibpng=0
+#     dolibjpeg=0
+#     dotiff=0
+#     doantlr=0
+#
+# authors: Matthias Cuntz, Stephan Thober
+# created: Oct 2014
+#
+# Copyright (c) 2014-2018 Matthias Cuntz - mc (at) macu (dot) de
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# --------------------------------------------------------------------
+# Info
+
+set -e
+prog=$0
+pprog=$(basename ${prog})
+dprog=$(dirname ${prog})
+pid="$$"
+sys=$(uname -s | tr A-Z a-z)
+ver=$(uname -r)
+kern=$(uname -r | tr A-Z a-z)
+if [[ "${sys}" == "darwin" ]] ; then
+    ncpu=$(sysctl -n hw.ncpu)
+else
+    ncpu=$(grep ^processor /proc/cpuinfo | wc -l)
+fi
+
+# --------------------------------------------------------------------
+# Help
+
+function usage () {
+    printf "${pprog} [h]\n"
+    printf "\n"
+    printf "Install open source packages such as the netcdf library.\n"
+    printf "There are no command line options. Edit the Setup section in the script instead.\n"
+    printf "\n"
+    printf "Options\n"
+    printf "    -h    Prints this help screen.\n"
+    printf "\n"
+    printf "Examples\n"
+    printf "    ${pprog}\n"
+    printf "\n"
+    printf "Copyright (c) 2014-2018 Matthias Cuntz - mc (at) macu (dot) de\n"
+}
+while getopts "h" Option ; do
+    case ${Option} in
+        h) usage; exit;;
+        *) printf "Error ${pprog}: unimplemented option.\n\n" 1>&2;  usage 1>&2; exit 1;;
+    esac
+done
+
+# --------------------------------------------------------------------
+# Setup
+
+# Where to install
+prefix=/usr/local
+
+# Which steps to do
+# steps are: 1. download, 2. unpack, 3. configure, make, install, 4. clean-up
+dodownload=1 # 1: curl sources, 0: skip
+docheck=1    # 1: make check, 2: make check but do not exit on errors, 0: skip
+dormtar=1    # 1: rm downloaded sources, 0: skip
+dosudo=1     # 1: install in ${prefix} with sudo, 0: install as user
+
+# What is to be installed in which version (setup list)
+
+# Basics - everything for programming with netCDF and MPI
+dozlib=0
+  zlib=1.2.11
+doopenssl=0
+  openssl=1.1.1-pre6
+doszip=0
+  szip=2.1.1
+dohdf5=0                 # make check works but might fail on Mac because of dylib circular dependencies
+                         # just cd into dir and sudo make install manually
+  hdf5=1.8.20            # 1.10.2 does not work with netcdf yet; stay with 1.8.20
+  # hdf5=1.10.1            # download path for hdf5 > 1.10 is https://www.hdfgroup.org/package/source-gzip/?wpdmdl=${hdf5code}
+                         # check code at https://www.hdfgroup.org/package/source-gzip/
+  # hdf5code=4301          # 1.10.1: 4301
+  # hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
+donetcdf4=0              # make check might stop, just make check and sudo make install manually
+  netcdf4=4.6.1          # 4.4.1.1 works; 4.5.0 is not working with mo_netcdf
+donetcdf4_fortran=0      # make check might stop, just make check and sudo make install manually
+  netcdf4_fortran=4.4.4  # 4.4.3 still works with netcd4=4.3.x
+donetcdf3=0              # pgfortran might stop, just make, make check, sudo make install manually
+  netcdf3=3.6.3
+doudunits=0
+  udunits=2.2.26
+dolibpng=0
+  libpng=1.6.34
+dolibjpeg=0
+  libjpeg=9c
+dotiff=0
+  tiff=4.0.9
+doproj4=0
+  proj4=5.0.1
+dojasper=0
+  jasper=1.900.1         # 1.900.29; teste 2.0.14, but not compatible with grib_api
+doeccodes=0              # for cdo > 1.9.0
+  eccodes=2.7.3          # make check fails (bufr not installed): ignore
+                         # just cd into build directory eccodes-${eccodes}-Source/build and sudo make install
+dogrib_api=0
+  grib_api=1.26.1
+docdo=0
+  cdo=1.9.3              # download path has a number that changes with version, e.g.
+                         #     https://code.zmaw.de/attachments/download/9444/cdo-1.6.7.tar.gz
+                         # check number at https://code.zmaw.de/projects/cdo/files
+  cdodownpath=16435      # 1.6.3: 7220; 1.6.4: 8376; 1.6.6: 9367; 1.6.7: 9444; 1.7.2: 12760; 1.9.1: 15653;
+                         # 1.9.2: 16035; 1.9.3: 16435
+doncview=0
+  ncview=2.1.8
+dogsl=0
+  gsl=2.4                # > 1.12 has some strange chmod a-w for gsl-config and gsl.pc
+doantlr=0
+  antlr=2.7.7            # one check fails with g++ clang 7.0.x on Mac OS X 10.11 (El Capitan) but can be ignored
+donco=0
+  nco=4.7.4
+doopenmpi=0
+  openmpi=3.0.1          # Does not work with pgfortran yet, make install fails; do manually,
+                         # where 20 in libmpi_usempif08.20.dylib stands for openmpi=2.0.x
+                         #   cd openmpi-* ; cd ompi/mpi/fortran/use-mpi-f08/.libs/
+                         #   ln -sf ../libmpi_usempif08.la libmpi_usempif08.20.dylib
+                         #   cd - ; sudo make install
+                         #   cd .. ; \rm -r openmpi-*
+dompich=0
+  mpich=3.3  
+
+# Python-Matplotlib
+# Georeferencing in basemap
+dogeos=0                 # one check fails (< 3.6.2) on Mac OS X but can be ignored
+  geos=3.6.2
+# GeoTiffs
+dogdal=0
+  gdal=2.2.4
+# Needed by ffmpeg
+doyasm=0
+  yasm=1.3.0
+# Do animations/movies in matplotlib
+doffmpeg=0               # Works if installed manually
+  ffmpeg=4.0
+
+
+# Optional tools
+  
+# 7zip is an extension of zip, e.g. used in CarboEurope database
+dop7zip=0
+  p7zip=16.02
+# Old HDF format, e.g. MODIS data
+dohdf4=0
+  hdf4=4.2.13
+# Text files as postscript -> pdf
+doenscript=0
+  enscript=1.6.6
+# htop is extended top
+dohtop=0
+  htop=2.2.0
+
+# Install netcdf-fortran for which Fortran compilers. Known compilers: gfortran nagfor pgfortran ifort
+# fortran_compilers="gfortran nagfor pgfortran ifort"
+fortran_compilers="gfortran"
+# fortran_compilers="nagfor"
+# fortran_compilers="/opt/pgi/osx86-64/18.4/bin/pgfortran"
+# source /opt/intel/bin/compilervars.sh intel64
+# fortran_compilers="ifort"
+
+# Extra CPPFLAGS and LDFLAGS, for example for libs in non-default path such as /opt/lib
+if [[ "${sys}" == "darwin" ]] ; then
+    EXTRA_CPPFLAGS=
+    EXTRA_LDFLAGS=
+    if [[ -d /usr/local/opt/hdf5\@1.8/include ]] ; then
+        # using hdf5 v1.8.19 from homebrew
+        EXTRA_CPPFLAGS="-I/usr/local/opt/hdf5@1.8/include"
+        EXTRA_LDFLAGS="-L/usr/local/opt/hdf5@1.8/lib"
+    fi
+else
+    EXTRA_CPPFLAGS=
+    EXTRA_LDFLAGS="-Wl,-rpath=${prefix}/lib"
+fi
+
+# Path to zlib's include/ lib/ directories (e.g. lib/libz.*)
+if [[ "${sys}" == "darwin" ]] ; then
+    ZPATH=${prefix}
+else
+    ZPATH=/usr
+fi
+
+# Path to curl lib (libcurl.*) for cdo
+if [[ "${sys}" == "darwin" ]] ; then
+    CURLLIB=/usr/lib
+else
+    if [[ ${kern} == *microsoft ]] ; then
+        CURLLIB=/usr/lib/x86_64-linux-gnu
+    else
+        CURLLIB=/usr/lib64
+    fi
+fi
+
+# Extra flag for FTP with curl
+if [[ "${sys}" == "darwin" ]] ; then
+    FTPFLAG=""
+else
+    FTPFLAG="--disable-epsv"
+fi
+
+# Path to X-devel for ncview. Searches for example checking X11/Intrinsic.h and X11/Xaw/Simple.h
+if [[ "${sys}" == "darwin" ]] ; then
+    XPATH=/usr/X11
+    XLIB=${XPATH}/lib
+    XINC=${XPATH}/include
+else
+    XPATH=/usr
+    if [[ ${kern} == *microsoft ]] ; then
+        XLIB=${XPATH}/lib/X11
+    else
+        XLIB=${XPATH}/lib64/X11
+    fi
+    XINC=${XPATH}/include/X11
+fi
+
+# PGI path
+if [[ "${sys}" == "darwin" ]] ; then
+    pgipath=/opt/pgi/osx86-64/17.10
+fi
+
+# CMake executable
+if [[ "${sys}" == "darwin" ]] ; then
+    if [[ -f /Applications/CMake.app/Contents/bin/cmake ]] ; then
+        CMAKE=/Applications/CMake.app/Contents/bin/cmake
+    else
+        CMAKE=cmake
+    fi
+else
+    CMAKE=cmake
+fi
+
+# --------------------------------------------------------------------
+# Functions
+
+function download () {
+    zbase=${1}
+    http=${2}
+    # download
+    if [[ ${dodownload} -eq 1 ]] ; then curl ${FTPFLAG} -L -o ${zbase} ${http}/${zbase} ; fi
+}
+
+function download_github () {
+    zbase=${1}
+    http=${2}
+    # download
+    if [[ ${dodownload} -eq 1 ]] ; then curl -L -o ${zbase} ${http} ; fi
+}
+
+function unpack () {
+    zbase=${1}
+    base=${2}
+    # extract
+    case ${zbase#${base}} in
+        *.tar)     tar -xvf  ${zbase} ;;
+        *.tar.bz)  tar -xvjf ${zbase} ;;
+        *.tar.bz2) tar -xvjf ${zbase} ;;
+        *.tar.gz)  tar -xvzf ${zbase} ;;
+        *.tar.z)   tar -xvZf ${zbase} ;;
+        *.tar.Z)   tar -xvZf ${zbase} ;;
+        *.tar.xz)  tar -xvJf ${zbase} ;;
+        *.zip)     unzip     ${zbase} ;;
+        *) printf "Error: compression not known ${zbase#${base}}\n\n" 1>&2; exit 1;;
+    esac
+}
+
+function download_unpack () {
+    base=${1}
+    zbase=${2}
+    http=${3}
+    # download
+    download ${zbase} ${http}
+    # extract
+    unpack ${zbase} ${base}
+}
+
+function download_github_unpack () {
+    base=${1}
+    zbase=${2}
+    http=${3}
+    # download
+    download_github ${zbase} ${http}
+    # extract
+    unpack ${zbase} ${base}
+}
+
+function configure_make () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # cd
+    cd ${base}
+    # configure
+    echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
+        CPPFLAGS=\"-I${prefix}/include ${EXTRA_CPPFLAGS}\" \
+        ./configure --prefix=${iprefix} ${aconf}
+    eval "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
+        CPPFLAGS=\"-I${prefix}/include ${EXTRA_CPPFLAGS}\" \
+        ./configure --prefix=${iprefix} ${aconf}
+    # make
+    make -j ${ncpu}
+}
+
+function configure_make_nocpp () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # cd
+    cd ${base}
+    # configure
+    echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
+        CPPFLAGS=\"${EXTRA_CPPFLAGS}\" \
+        ./configure --prefix=${iprefix} ${aconf}
+    eval "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
+        CPPFLAGS=\"${EXTRA_CPPFLAGS}\" \
+        ./configure --prefix=${iprefix} ${aconf}
+    # make
+    make -j ${ncpu}
+}
+
+function cmake_make () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # cd
+    cd ${base}
+    # build dir
+    mkdir build
+    cd build
+    # cmake
+    echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
+        CPPFLAGS=\"-I${prefix}/include ${EXTRA_CPPFLAGS}\" \
+        ${CMAKE} -DCMAKE_INSTALL_PREFIX=${iprefix} ${aconf} ../
+    eval "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
+        CPPFLAGS=\"-I${prefix}/include ${EXTRA_CPPFLAGS}\" \
+        ${CMAKE} -DCMAKE_INSTALL_PREFIX=${iprefix} ${aconf} ../
+    # make
+    make -j ${ncpu}
+}
+
+function check () {
+    # check
+    case ${docheck} in
+        1) make -j ${ncpu} check ;;
+        2) set +e ; make -j ${ncpu} check ; set -e ;;
+        *) : ;;
+    esac
+}
+
+function check_test () {
+    # check 
+    case ${docheck} in
+        1) make -j ${ncpu} test ;;
+        2) set +e ; make -j ${ncpu} test ; set -e ;;
+        *) : ;;
+    esac
+}
+
+function configure_make_check () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # make
+    configure_make ${base} "${bconf}" "${aconf}"
+    # check
+    check
+}
+
+function cmake_make_check () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # make
+    cmake_make ${base} "${bconf}" "${aconf}"
+    # check
+    check
+}
+
+function configure_make_test () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # make
+    configure_make ${base} "${bconf}" "${aconf}"
+    # check
+    check_test
+}
+
+function cmake_make_test () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # make
+    cmake_make ${base} "${bconf}" "${aconf}"
+    # check
+    check_test
+}
+
+function install () {
+    mconf=${1}
+    # install
+    if [[ ${dosudo} -eq 1 ]] ; then
+        # echo ${supw} | sudo -S make install
+        sudo make install ${mconf}
+    else
+        make install ${mconf}
+    fi
+}
+
+function configure_make_check_install () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # make
+    configure_make ${base} "${bconf}" "${aconf}"
+    # check
+    check
+    # install
+    install
+}
+
+function configure_make_nocpp_check_install () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # make
+    configure_make_nocpp ${base} "${bconf}" "${aconf}"
+    # check
+    check
+    # install
+    install
+}
+
+function cmake_make_check_install () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # make
+    cmake_make ${base} "${bconf}" "${aconf}"
+    # check
+    check
+    # install
+    install
+}
+
+function cmake_make_test_install () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # make
+    cmake_make ${base} "${bconf}" "${aconf}"
+    # check
+    check_test
+    # install
+    install
+}
+
+function apply_netcdf_fortran_nag_patch () {
+    #
+    printf "Patch ${base}/m4/libtool.m4\n"
+    # patch ${base}/m4/libtool.m4 patchit.${pid}
+    sed -n -e "/nagbegin.netcdf${netcdf4_fortran}.patch/,/nagend.netcdf${netcdf4_fortran}.patch/p" \
+        ${dprog}/${pprog} > patchit.${pid}
+    case ${netcdf4_fortran} in # normal: diff old new > patch
+        4.2) # was done: diff new old > patch
+            patch -R ${base}/m4/libtool.m4 patchit.${pid}
+            ;;
+        4.4.1) # was done: diff new old > patch
+            patch -R ${base}/m4/libtool.m4 patchit.${pid}
+            ;;
+        4.4.2) # patch directly libtool
+            patch ${base}/libtool patchit.${pid}
+            ;;
+        4.4.3) # do not patch libtool but change F77 test file
+            sed -i -e 's/call EXIT/stop/' ${base}/nf_test/nf_test.F
+            ;;
+        4.4.4) # do not patch libtool but change F77 test files
+            sed -i -e 's/call EXIT/stop/' ${base}/nf_test/nf_test.F
+            sed -i -e 's/&[[:blank:]]*$//' ${base}/nf_test/ftst_path.F
+            sed -i -e 's/&[[:blank:]]*$//' ${base}/nf_test/ftst_rengrps.F
+            sed -i -e 's/&[[:blank:]]*$//' ${base}/nf03_test/test03_read.F
+            sed -i -e 's/&[[:blank:]]*$//' ${base}/nf03_test/test03_write.F
+            sed -i -e 's/&[[:blank:]]*$//' ${base}/nf03_test/util03.F
+            sed -i -e 's/&[[:blank:]]*$//' ${base}/nf03_test/f03tst_open_mem.F
+            ;;
+        *)
+            true
+            ;;
+    esac
+    if [[ -f patchit.${pid} ]] ; then rm patchit.${pid} ; fi
+}
+
+function configure_make_check_install_netcdf_fortran_nag () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # cd
+    cd ${base}
+    # configure
+    echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
+        CPPFLAGS=\"-I${prefix}/include ${EXTRA_CPPFLAGS}\" \
+        ./configure --prefix=${iprefix} ${aconf}
+    eval "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
+        CPPFLAGS=\"-I${prefix}/include ${EXTRA_CPPFLAGS}\" \
+        ./configure --prefix=${iprefix} ${aconf}
+    # apply patch
+    if [[ "${netcdf4_fortran}" > "4.1" ]] ; then
+        cd ..
+        apply_netcdf_fortran_nag_patch
+        cd ${base}
+    fi
+    # make
+    make -j ${ncpu}
+    # check # make check for netcdf-nagfor fails with -j
+    make check
+    # install
+    install
+}
+
+function configure_make_nocpp_check_install_netcdf_fortran_nag () {
+    base=${1}
+    bconf=${2}
+    aconf=${3}
+    # cd
+    cd ${base}
+    # configure
+    echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
+        CPPFLAGS=\"${EXTRA_CPPFLAGS}\" \
+        ./configure --prefix=${iprefix} ${aconf}
+    eval "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
+        CPPFLAGS=\"${EXTRA_CPPFLAGS}\" \
+        ./configure --prefix=${iprefix} ${aconf}
+    # apply patch
+    if [[ "${netcdf4_fortran}" > "4.1" ]] ; then
+        cd ..
+        apply_netcdf_fortran_nag_patch
+        cd ${base}
+    fi
+    # make
+    make -j ${ncpu}
+    # check # make check for netcdf-nagfor fails with -j
+    make check
+    # install
+    install
+}
+
+function cleanup () {
+    base=${1}
+    zbase=${2}
+    # clean up
+    if [[ ${dosudo} -eq 1 ]] ; then
+        sudo rm -rf ${base}
+        if [[ ${dormtar} -eq 1 ]] ; then sudo rm ${zbase} ; fi
+    else
+        rm -rf ${base}
+        if [[ ${dormtar} -eq 1 ]] ; then rm ${zbase} ; fi
+    fi
+}
+
+function download_configure_make_check_install () {
+    base=${1}
+    zbase=${2}
+    http=${3}
+    bconf=${4}
+    aconf=${5}
+    download_unpack ${base} ${zbase} ${http}
+    configure_make_check_install ${base} "${bconf}" "${aconf}"
+    cd ..
+    cleanup ${base} ${zbase}
+}
+
+function download_cmake_make_check_install () {
+    base=${1}
+    zbase=${2}
+    http=${3}
+    bconf=${4}
+    aconf=${5}
+    download_unpack ${base} ${zbase} ${http}
+    cmake_make_check_install ${base} "${bconf}" "${aconf}"
+    cd ../..
+    cleanup ${base} ${zbase}
+}
+
+function download_cmake_make_test_install () {
+    base=${1}
+    zbase=${2}
+    http=${3}
+    bconf=${4}
+    aconf=${5}
+    download_unpack ${base} ${zbase} ${http}
+    cmake_make_test_install ${base} "${bconf}" "${aconf}"
+    cd ../..
+    cleanup ${base} ${zbase}
+}
+
+# --------------------------------------------------------------------
+# Start
+# --------------------------------------------------------------------
+
+# --------------------------------------------------------------------
+# sudo
+
+iprefix=${prefix}
+
+# get sudo password
+if [[ ${dosudo} -eq 1 ]] ; then
+    printf "\nsudo password for make install into ${prefix}\n"
+    # Ask for sudo password upfront
+    sudo -v
+    # Keep-alive: update existing `sudo` time stamp until script has finished
+    while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+    # read -rs -p "sudo password for make install into ${prefix}: " supw
+    printf "\n"
+fi
+
+# --------------------------------------------------------------------
+# Install
+
+# build zlib
+if [[ ${dozlib} -eq 1 ]] ; then
+    printf 'Build zlib\n'
+    base=zlib-${zlib}
+    zbase=${base}.tar.gz
+    http=http://zlib.net
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+# build openssl
+if [[ ${doopenssl} -eq 1 ]] ; then
+    printf 'Build openssl\n'
+    base=openssl-${openssl}
+    zbase=${base}.tar.gz
+    http=https://www.openssl.org/source
+    # download
+    download_unpack ${base} ${zbase} ${http}
+    # configure
+    cd ${base}
+    if [[ "${sys}" == "darwin" && "${openssl}" < "1.1.0" ]] ; then
+        # pod2man5.18 much stricter than ealier version but --stderr flag allows warnings instead of errors: patch Makefile.org
+        sed -e '/@pod2man/s/";/ --stderr";/' Makefile.org > tmp.${pid}
+        mv tmp.${pid} Makefile.org
+        LDFLAGS="-L${prefix}/lib ${EXTRA_LDFLAGS}" CPPFLAGS="-I${prefix}/include ${EXTRA_CPPFLAGS}" \
+            ./Configure --prefix=${iprefix} --openssldir=${iprefix}/openssl darwin64-x86_64-cc
+    else
+        LDFLAGS="-L${prefix}/lib ${EXTRA_LDFLAGS}" CPPFLAGS="-I${prefix}/include ${EXTRA_CPPFLAGS}" \
+            ./config --prefix=${iprefix} --openssldir=${iprefix}/openssl
+    fi
+    # make
+    make
+    # check
+    check_test
+    # install
+    install
+    cd ..
+    # clean
+    cleanup ${base} ${zbase}
+fi
+
+# build szip
+if [[ ${doszip} -eq 1 ]] ; then
+    printf 'Build szip\n'
+    base=szip-${szip}
+    zbase=${base}.tar.gz
+    http=http://www.hdfgroup.org/ftp/lib-external/szip/${szip}/src
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+# build hdf5
+if [[ ${dohdf5} -eq 1 ]] ; then
+    printf 'Build hdf5\n'
+    base=hdf5-${hdf5}
+    zbase=${base}.tar.gz
+    if [[ "${hdf5}" > "1.10.0" ]] ; then
+        http=https://www.hdfgroup.org/package/source-gzip/?wpdmdl=${hdf5code}
+        download_github_unpack ${base} ${zbase} ${http}
+        cmake_make ${base} "${bconf}" "${aconf}"
+        if [[ ${hdf5check} -eq 1 ]] ; then
+            check_test
+        fi
+        install
+        cd ../..
+        cleanup ${base} ${zbase}
+    else
+        http=http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${hdf5%.*}/hdf5-${hdf5}/src
+        download_configure_make_check_install ${base} ${zbase} ${http} " " "--with-zlib=${ZPATH} --with-szlib=${prefix}"
+    fi
+fi
+
+# build netcdf4 C
+if [[ ${donetcdf4} -eq 1 ]] ; then
+    printf 'build netcdf4-C\n'
+    base=netcdf-${netcdf4}
+    base2=netcdf-c-${netcdf4}
+    zbase=${base}.tar.gz
+    http=https://codeload.github.com/Unidata/netcdf-c/tar.gz/v${netcdf4}
+    download_github_unpack ${base} ${zbase} ${http}
+    if [[ "${netcdf4}" > "4.4.1" ]] ; then
+        configure_make_check_install ${base2} " " "--disable-dap-remote-tests"
+        cd ..
+        cleanup ${base2} ${zbase}
+    else
+        configure_make_check_install ${base} " " "--disable-dap-remote-tests"
+        cd ..
+        cleanup ${base} ${zbase}
+    fi
+fi
+
+# build netcdf4-fortran
+if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
+    printf 'Build netcdf4-fortran\n'
+    base=netcdf-fortran-${netcdf4_fortran}
+    zbase=${base}.tar.gz
+    http=https://codeload.github.com/Unidata/netcdf-fortran/tar.gz/v${netcdf4_fortran}
+    download_github_unpack ${base} ${zbase} ${http}
+    # configure / make / check / install for all fortran compilers
+    for f_comp in ${fortran_compilers} ; do
+        printf "Build ${base}-$(basename ${f_comp})\n"
+        iprefix=${prefix}/${base}-$(basename ${f_comp})
+        case ${f_comp} in
+            *pgfortran*) # first pgfortran then gfortran in case
+                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -DpgiFortran"
+                EXTRA_LDLFAGS="${EXTRA_LDFLAGS} -L${pgipath}/lib"
+                configure_make_nocpp ${base} "FC=${f_comp} FCLAGS='-O -tp=p7-64' F77=${f_comp} FFLAGS='-O -tp=p7-64' LIBS='-lnetcdf -lhdf5 -lhdf5_hl'"
+                # pgiFortran does not work with f77_v2
+                sed -i -e 's/= tst_f77_v2/= #tst_f77_v2/' nf_test/Makefile
+                sed -i -e 's/= tst03_f77_v2/= #tst03_f77_v2/' nf03_test/Makefile
+                check
+                install
+                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
+                EXTRA_LDFLAGS="${EXTRA_LDFLAGS% ?*}"
+                ;;
+            *gfortran*) # first pgfortran then gfortran in case
+                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -DgFortran"
+                configure_make_check_install ${base} "FC=${f_comp}"
+                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
+                ;;
+            *nag*)
+                configure_make_nocpp_check_install_netcdf_fortran_nag ${base} "FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full' FFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full'" " "
+                ;;
+            *ifort*)
+                if [[ "${sys}" == "darwin" ]] ; then
+                    configure_make_nocpp_check_install ${base} "FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise -m64'" " "
+                else
+                    configure_make_check_install ${base} "FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'" " "
+                fi
+                ;;
+            *)
+                printf "${pprog}: Fortran compiler not known: ${f_comp}.\n\n"
+                iprefix=${prefix}
+                continue
+                ;;
+        esac
+        iprefix=${prefix}
+        # clean for next fortran compiler
+        make clean
+        cd ..
+    done
+    cleanup ${base} ${zbase}
+fi
+
+# build netcdf3
+if [[ ${donetcdf3} -eq 1 ]] ; then
+    printf 'Build netcdf3\n'
+    base=netcdf-${netcdf3}
+    zbase=${base}.tar.gz
+    http=http://www.unidata.ucar.edu/downloads/netcdf/ftp
+    download_unpack ${base} ${zbase} ${http}
+    # patch test_write.F
+    sed -i -e 's/IF (err .ne. NF_EINVAL)/IF (err .ne. 0)/' ${base}/nf_test/test_write.F
+    # configure / make / check / install for all fortran compilers
+    for f_comp in ${fortran_compilers} ; do
+        printf "Build ${base}-$(basename ${f_comp})\n"
+        iprefix=${prefix}/${base}-$(basename ${f_comp})
+        ncpuold=${ncpu} # does not work with make on multiple CPUs
+        ncpu=1
+        case ${f_comp} in
+            *pgfortran*) # first pgfortran then gfortran in case
+                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -DpgiFortran"
+                EXTRA_LDLFAGS="${EXTRA_LDFLAGS} -L${pgipath}/lib"
+                configure_make_nocpp_check_install ${base} "FC=${f_comp} FCLAGS='-O -tp=p7-64' F77=${f_comp} FFLAGS='-O -tp=p7-64'" "--enable-shared --enable-f90"
+                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
+                EXTRA_LDFLAGS="${EXTRA_LDFLAGS% ?*}"
+                ;;
+            *gfortran*) # first pgfortran then gfortran in case
+                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -DgFortran"
+                configure_make_check_install ${base} "FC=${f_comp}" "--enable-shared --enable-f90"
+                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
+                ;;
+            *nag*)
+                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -DNAGf90Fortran"
+                configure_make_nocpp_check_install ${base} "FC=${f_comp} F77=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full' FFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full -fixed -dusty'" "--enable-shared --enable-f90"
+                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
+                ;;
+            *ifort*)
+                if [[ "${sys}" == "darwin" ]] ; then
+                    configure_make_nocpp_check_install ${base} "FC=${f_comp} F77=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise -m64' FFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise -m64'" "--enable-shared --enable-f90"
+                else
+                    configure_make_check_install ${base} "FC=${f_comp} F77=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64' FFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'" "--enable-shared --enable-f90"
+                fi
+                ;;
+            *)
+                printf "${pprog}: Fortran compiler not known: ${f_comp}.\n\n"
+                ncpu=${ncpuold}
+                iprefix=${prefix}
+                continue
+                ;;
+        esac
+        ncpu=${ncpuold}
+        iprefix=${prefix}
+        # clean for next fortran compiler
+        make clean
+        cd ..
+    done
+    cleanup ${base} ${zbase}
+fi
+
+# build udunits
+if [[ ${doudunits} -eq 1 ]] ; then
+    printf 'build udunits\n'
+    base=udunits-${udunits}
+    zbase=${base}.tar.gz
+    http=ftp://ftp.unidata.ucar.edu/pub/udunits
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+# build libpng
+if [[ ${dolibpng} -eq 1 ]] ; then
+    printf 'build libpng\n'
+    base=libpng-${libpng}
+    zbase=${base}.tar.gz
+    http=http://downloads.sourceforge.net/project/libpng/libpng16/${libpng}
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+# build libjpeg
+if [[ ${dolibjpeg} -eq 1 ]] ; then
+    printf 'build libjpeg\n'
+    base=jpegsrc.v${libjpeg}
+    zbase=${base}.tar.gz
+    http=http://www.ijg.org/files
+    download_unpack ${base} ${zbase} ${http}
+    base=jpeg-${libjpeg}
+    configure_make_check_install ${base}
+    cd ..
+    cleanup ${base} ${zbase}
+fi
+
+# build tiff
+if [[ ${dotiff} -eq 1 ]] ; then
+    printf 'build tiff\n'
+    base=tiff-${tiff}
+    zbase=${base}.tar.gz
+    http=https://download.osgeo.org/libtiff
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+# build proj4
+if [[ ${doproj4} -eq 1 ]] ; then
+    printf 'build proj4\n'
+    base=proj-${proj4}
+    zbase=${base}.tar.gz
+    http=https://download.osgeo.org/proj
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+# build jasper
+if [[ ${dojasper} -eq 1 ]] ; then
+    printf 'build jasper\n'
+    base=jasper-${jasper}
+    if [[ "${jasper}" > "1.900.1" ]] ; then
+        zbase=${base}.tar.gz
+    else
+        zbase=${base}.zip
+    fi
+    http=http://www.ece.uvic.ca/~frodo/jasper/software
+    download_configure_make_check_install ${base} ${zbase} ${http} " " "--enable-shared"
+fi
+
+# build grib_api
+if [[ ${dogrib_api} -eq 1 ]] ; then
+    printf 'build grib_api\n'
+    base=grib_api-${grib_api}-Source
+    zbase=${base}.tar.gz
+    http=https://software.ecmwf.int/wiki/display/GRIB/Releases
+    if [[ "${grib_api}" > "1.16.0" ]] ; then
+        download_configure_make_check_install ${base} ${zbase} ${http}
+    else
+        download_unpack ${base} ${zbase} ${http}
+        # change all files to be writeable, otherwise rm asks to override -r--r--r on Mac OS X
+        chmod -R u+w ${base}
+        # make install
+        configure_make_check_install ${base}
+        cd ..
+        cleanup ${base} ${zbase}
+    fi
+fi
+
+# build eccodes
+if [[ ${doeccodes} -eq 1 ]] ; then
+    printf 'build eccodes\n'
+    base=eccodes-${eccodes}-Source
+    zbase=${base}.tar.gz
+    http=https://software.ecmwf.int/wiki/download/attachments/45757960/
+    download_cmake_make_check_install ${base} ${zbase} ${http} " " "-DENABLE_PNG=ON"
+    # download_unpack ${base} ${zbase} ${http}
+    # cd ${base}
+    # mkdir build
+    # cd build
+    # ${CMAKE} -DCMAKE_INSTALL_PREFIX=${prefix} -DENABLE_PNG=ON ../
+    # make
+    # # make check
+    # sudo make install
+    # cd ../..
+    # cleanup ${base} ${zbase}
+fi
+
+# build cdo
+if [[ ${docdo} -eq 1 ]] ; then
+    printf 'build cdo\n'
+    base=cdo-${cdo}
+    zbase=${base}.tar.gz
+    # zbase=cdo-current.tar.gz
+    http=https://code.zmaw.de/attachments/download/${cdodownpath}
+    download_unpack ${base} ${zbase} ${http}
+    # patch cdo
+    if [[ ${cdo} == '1.6.2' ]] ; then
+        # patch grid reference.c
+        printf '23d22\n< #include <curl/types.h>\n' | patch --input=- ${base}/src/gridreference.c
+        # patch job.c
+        printf '352d351\n< #  include <curl/types.h>\n' | patch --input=- ${base}/src/job.c
+    fi
+    if [[ ${cdo} < '1.9.1' ]] ; then
+        configure_make_check_install ${base} " " "--prefix=${prefix} --with-szlib=yes --with-hdf5=yes --with-jasper=${prefix} --with-proj=${prefix} --with-udunits2=${prefix}/lib --with-curl=${CURLLIB} --with-netcdf=${prefix} --with-grib_api=yes"
+    else
+        configure_make_check_install ${base} " " "--prefix=${prefix} --with-szlib=yes --with-hdf5=yes --with-jasper=${prefix} --with-proj=${prefix} --with-udunits2=${prefix}/lib --with-curl=${CURLLIB} --with-netcdf=${prefix} --with-eccodes=yes"
+    fi
+    cd ..
+    cleanup ${base} ${zbase}
+fi
+
+# build ncview
+if [[ ${doncview} -eq 1 ]] ; then
+    printf 'build ncview\n'
+    base=ncview-${ncview}
+    zbase=${base}.tar.gz
+    http=ftp://cirrus.ucsd.edu/pub/ncview
+    download_unpack ${base} ${zbase} ${http}
+    # change some defaults in code
+    sed -e '/^#define DEFAULT_BLOWUP[[:blank:]]/s/DEFAULT_BLOWUP.*/DEFAULT_BLOWUP 8/' \
+        -e '/^#define DEFAULT_MIN_MAX_METHOD[[:blank:]]/s/DEFAULT_MIN_MAX_METHOD.*/DEFAULT_MIN_MAX_METHOD MIN_MAX_METHOD_EXHAUST/' \
+        -e '/^#define DEFAULT_BLOWUP_TYPE[[:blank:]]/s/DEFAULT_BLOWUP_TYPE.*/DEFAULT_BLOWUP_TYPE BLOWUP_REPLICATE/' \
+        -e '/^#define DEFAULT_AUTO_OVERLAY[[:blank:]]/s/DEFAULT_AUTO_OVERLAY.*/DEFAULT_AUTO_OVERLAY FALSE/' \
+        -e '/options.blowup[[:blank:]]\{1,\}=/s/blowup[[:blank:]]\{1,\}=.*/blowup = DEFAULT_BLOWUP;/' \
+        -e '/options.beep_on_restart[[:blank:]]\{1,\}=/s/beep_on_restart[[:blank:]]\{1,\}=.*/beep_on_restart = TRUE;/' \
+        ${base}/src/ncview.c > tmp.${pid}
+    mv tmp.${pid} ${base}/src/ncview.c
+    # Mac OS X uses .dylib for shared libraries, .so hardcoded in configure
+    if [[ "${sys}" == "darwin" ]] ; then
+        sed -e 's/\.so/.dylib/' -e '/RPDIR=/s/RPDIR=.*/RPDIR=${word:2}/' ${base}/configure > tmp.${pid}
+        mv tmp.${pid} ${base}/configure
+        chmod +x ${base}/configure
+    fi
+    # make install
+    if [[ "${sys}" == "darwin" ]] ; then
+        EXTRA_LDLFAGS="${EXTRA_LDFLAGS} -L${prefix}/lib -lnetcdf"
+    fi
+    if [[ ${kern} == *microsoft ]] ; then
+        configure_make_check_install ${base} " " "--prefix=${prefix} --with-nc_config=${prefix}/bin/nc-config --with-udunits2_incdir=${prefix}/include --with-udunits2_libdir=${prefix}/lib --x-libraries=${XLIB} --x-includes=${XINC} --with-png_incdir=/usr/include --with-png_libdir=/usr/lib/x86_64-linux-gnu"
+    else
+        configure_make_check_install ${base} " " "--prefix=${prefix} --with-nc_config=${prefix}/bin/nc-config --with-udunits2_incdir=${prefix}/include --with-udunits2_libdir=${prefix}/lib --x-libraries=${XLIB} --x-includes=${XINC} --with-png_incdir=${prefix}/include --with-png_libdir=${prefix}/lib"
+    fi
+    if [[ "${sys}" == "darwin" ]] ; then
+        EXTRA_LDFLAGS="${EXTRA_LDFLAGS% ?*}"
+        EXTRA_LDFLAGS="${EXTRA_LDFLAGS% ?*}"
+    fi
+    cd ..
+    cleanup ${base} ${zbase}
+fi
+
+# build gsl
+if [[ ${dogsl} -eq 1 ]] ; then
+    printf 'build gsl\n'
+    base=gsl-${gsl}
+    zbase=${base}.tar.gz
+    http=ftp://ftp.gnu.org/gnu/gsl
+    # download and unpack
+    download_unpack ${base} ${zbase} ${http}
+    # make and make check
+    configure_make_check ${base}
+    # # change all files to be writeable, otherwise rm asks to override -r--r--r on Mac OS X
+    # chmod -R u+w .
+    install
+    cd ..
+    # clean
+    cleanup ${base} ${zbase}
+fi
+
+# build antlr
+if [[ ${doantlr} -eq 1 ]] ; then
+    printf 'build antlr\n'
+    base=antlr-${antlr}
+    zbase=${base}.tar.gz
+    http=http://www.antlr2.org/download
+    # download and unpack
+    download_unpack ${base} ${zbase} ${http}
+    if [[ "${sys}" != "darwin" ]] ; then
+        sed -i '19 a #include <stdio.h>' ${base}/lib/cpp/antlr/CharInputBuffer.hpp
+        sed -i '19 a #include <stdlib.h>' ${base}/lib/cpp/antlr/CharInputBuffer.hpp
+        sed -i '26 a #include <stdio.h>' ${base}/lib/cpp/antlr/CharScanner.hpp
+        sed -i '27 a #include <strings.h>' ${base}/lib/cpp/antlr/CharScanner.hpp
+    fi
+    configure_make ${base}
+    # if [[ "${sys}" != "darwin" ]] ; then
+    #   sed -i '9 a #include <stdlib.h>' ${base}/examples/cpp/transform/CalcTreeWalker.cpp
+    #   sed -i '14 a #include <stdio.h>' ${base}/examples/cpp/calc/Main3.cpp
+    #   sed -i '15 a #include <cstring>' ${base}/examples/cpp/calc/Main3.cpp
+    # fi
+    # make check; one check fails on Mac OS X -> ignore it
+    dochecksave=${docheck}
+    if [[ ${docheck} -gt 0 ]] ; then docheck=2 ; fi
+    check_test
+    docheck=${dochecksave}
+    # install
+    install
+    cd ..
+    # clean
+    cleanup ${base} ${zbase}
+fi
+
+# build nco
+if [[ ${donco} -eq 1 ]] ; then
+    printf 'build nco\n'
+    base=nco-${nco}
+    zbase=${base}.tar.gz
+    http=https://github.com/nco/nco/archive/${nco}.tar.gz
+    download_github_unpack ${base} ${zbase} ${http}    
+    # change some unknown LaTeX
+    sed -e '/textdegree/d' ${base}/doc/nco.texi > tmp.${pid}
+    mv tmp.${pid} ${base}/doc/nco.texi
+    # make install
+    configure_make_check_install ${base} "GSL_ROOT=${prefix} PATH_TO_NCGEN=${prefix}/bin/ncgen NETCDF_INC=${prefix}/include NETCDF_LIB=${prefix}/lib NETCDF4_ROOT=${prefix} UDUNITS2_PATH=${prefix} YACC=yacc" "--enable-dap-netcdf --enable-gsl"
+    cd ..
+    cleanup ${base} ${zbase}
+fi
+
+# build openmpi
+if [[ ${doopenmpi} -eq 1 ]] ; then
+    printf 'build openmpi\n'
+    base=openmpi-${openmpi}
+    zbase=${base}.tar.gz
+    http=http://www.open-mpi.org/software/ompi/v${openmpi%\.*}/downloads
+    download_unpack ${base} ${zbase} ${http}
+    # configure / make / check / install for all fortran compilers
+    for f_comp in ${fortran_compilers} ; do
+        printf "Build ${base}-$(basename ${f_comp})\n"
+        iprefix=${prefix}/${base}-$(basename ${f_comp})
+        case ${f_comp} in
+            *pgfortran*) # first pgfortran then gfortran in case
+                aconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
+                ;;
+            *gfortran*) # first pgfortran then gfortran in case
+                aconf="FC=${f_comp}"
+                ;;
+            *nag*)
+                aconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full'"
+                ;;
+            *ifort*)
+                if [[ "${sys}" == "darwin" ]] ; then
+                    aconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise -m64'"
+                else
+                    aconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'"
+                fi
+                ;;
+            *)
+                printf "${pprog}: Fortran compiler not known: ${f_comp}.\n\n"
+                continue
+                ;;
+        esac
+        configure_make_check_install ${base} "${aconf}" " "
+        iprefix=${prefix}
+        # clean for next fortran compiler
+        make clean
+        cd ..
+    done
+    cleanup ${base} ${zbase}
+fi
+
+# build mpich
+if [[ ${dompich} -eq 1 ]] ; then
+    printf 'build mpich\n'
+    base=mpich-${mpich}
+    zbase=${base}.tar.gz
+    http=http://www.mpich.org/static/downloads/${mpich}/mpich-${mpich}.tar.gz
+    download_unpack ${base} ${zbase} ${http}
+    # configure / make / check / install for all fortran compilers
+    for f_comp in ${fortran_compilers} ; do
+        printf "Build ${base}-$(basename ${f_comp})\n"
+        iprefix=${prefix}/${base}-$(basename ${f_comp})
+        case ${f_comp} in
+            *pgfortran*) # first pgfortran then gfortran in case
+                aconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
+                ;;
+            *gfortran*) # first pgfortran then gfortran in case
+                aconf="FC=${f_comp}"
+                ;;
+            *nag*)
+                aconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full'"
+                ;;
+            *ifort*)
+                if [[ "${sys}" == "darwin" ]] ; then
+                    aconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise -m64'"
+                else
+                    aconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'"
+                fi
+                ;;
+            *)
+                printf "${pprog}: Fortran compiler not known: ${f_comp}.\n\n"
+                continue
+                ;;
+        esac
+        configure_make_check_install ${base} "${aconf}" " "
+        iprefix=${prefix}
+        # clean for next fortran compiler
+        make clean
+        cd ..
+    done
+    cleanup ${base} ${zbase}
+fi
+
+# build geos
+if [[ ${dogeos} -eq 1 ]] ; then
+    printf 'build geos\n'
+    base=geos-${geos}
+    zbase=${base}.tar.bz2
+    http=https://download.osgeo.org/geos
+    download_unpack ${base} ${zbase} ${http}
+    # make and make test
+    if [[ "${sys}" == "darwin" ]] ; then
+        configure_make ${base} "CC=/usr/bin/clang CXX=/usr/bin/clang++"
+    else
+        configure_make ${base}
+    fi
+    # make check; one check fails on Mac OS X -> ignore it
+    dochecksave=${docheck}
+    if [[ ${docheck} -gt 0 ]] ; then docheck=2 ; fi
+    check
+    docheck=${dochecksave}
+    # install
+    install
+    cd ..
+    # clean
+    cleanup ${base} ${zbase}
+fi
+
+# build gdal
+if [[ ${dogdal} -eq 1 ]] ; then
+    printf 'build gdal\n'
+    base=gdal-${gdal}
+    zbase=${base}.tar.gz
+    http=https://download.osgeo.org/gdal/${gdal}
+    download_unpack ${base} ${zbase} ${http}
+    configure_make ${base}
+    # there is no make check or make test
+    install
+    cd ..
+    cleanup ${base} ${zbase}
+fi
+
+# build yasm
+if [[ ${doyasm} -eq 1 ]] ; then
+    printf 'build yasm\n'
+    base=yasm-${yasm}
+    zbase=${base}.tar.gz
+    http=http://www.tortall.net/projects/yasm/releases
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+# build ffmpeg
+if [[ ${doffmpeg} -eq 1 ]] ; then
+    printf 'build ffmpeg\n'
+    base=ffmpeg-${ffmpeg}
+    zbase=${base}.tar.bz2
+    http=http://ffmpeg.org/releases
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+# build p7zip
+if [[ ${dop7zip} -eq 1 ]] ; then
+    printf 'build p7zip\n'
+    base=p7zip_${p7zip}
+    zbase=${base}_src_all.tar.bz2
+    #http=http://switch.dl.sourceforge.net/project/p7zip/p7zip/${p7zip}
+    http=http://sourceforge.net/projects/p7zip/files/latest/download
+    # download and unpack
+    download_unpack ${base} ${zbase} ${http}
+    # make
+    cd ${base}
+    # cp makefile.macosx_64bits makefile.machine
+    cp makefile.macosx_llvm_64bits makefile.machine
+    make
+    # check
+    case ${docheck} in
+        1) make -j ${ncpu} all_test ;;
+        2) set +e ; make -j ${ncpu} all_test ; set -e ;;
+        *) : ;;
+    esac
+    # install
+    install
+    cd ..
+    # clean
+    cleanup ${base} ${zbase}
+fi
+
+# build hdf4
+if [[ ${dohdf4} -eq 1 ]] ; then
+    printf 'build hdf4\n'
+    base=hdf-${hdf4}
+    zbase=${base}.tar.gz
+    http=http://www.hdfgroup.org/ftp/HDF/HDF_Current/src
+    # Problems reading netcdf with HDF4 - we do not need it though
+    iprefix=${prefix}/${base}
+    if [[ "${sys}" == "darwin" && ${ver} > 13.9.9 ]] ; then
+        # download and unpack
+        download_unpack ${base} ${zbase} ${http}
+        # make and make test
+        configure_make ${base} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --with-jpeg=${prefix}"
+        # make check; two checks fail on Mac OS X -> ignore it
+        dochecksave=${docheck}
+        if [[ ${docheck} -gt 0 ]] ; then docheck=2 ; fi
+        check
+        docheck=${dochecksave}
+        # install
+        install
+        cd ..
+        # clean
+        cleanup ${base} ${zbase}
+    else
+        download_configure_make_check_install ${base} ${zbase} ${http} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --with-jpeg=${prefix}"
+    fi
+    iprefix=${prefix}
+fi
+
+# build enscript
+if [[ ${doenscript} -eq 1 ]] ; then
+    printf 'build enscript\n'
+    base=enscript-${enscript}
+    zbase=${base}.tar.gz
+    http=http://ftp.gnu.org/gnu/enscript
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+# build htop
+if [[ ${dohtop} -eq 1 ]] ; then
+    printf 'build htop\n'
+    base=htop-${htop}
+    zbase=${base}.tar.gz
+    http=http://hisham.hm/htop/releases/${htop}
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+
+# --------------------------------------------------------------------
+# Finish
+
+exit 0
+
+# --------------------------------------------------------------------
+# netCDF patches
+# --------------------------------------------------------------------
+
+# --------------------------------------------------------------------
+# netcdf4.2 patch for nagfor from NAG support - attention wrong way round, use patch -R
+# nagbegin.netcdf4.2.patch
+4054,4058d4053
+<       nagfor*)
+<         _LT_TAGVAR(lt_prog_compiler_wl, $1)='-Wl,-Wl,,'
+<         _LT_TAGVAR(lt_prog_compiler_pic, $1)='-PIC'
+<         _LT_TAGVAR(lt_prog_compiler_static, $1)='-Bstatic'
+<         ;;
+4485,4488d4479
+<       nagfor*) # NAG Fortran 5.3
+<         _LT_TAGVAR(whole_archive_flag_spec, $1)='${wl}--whole-archive`for conv in $convenience\"\"; do test  -n \"$conv\" && new_convenience=\"$new_convenience,$conv\"; done; func_echo_all \"$new_convenience\"`,-Wl,,--no-whole-archive'
+<         tmp_sharedflag='-Wl,-shared'
+<           ;;
+4515,4517d4505
+<       nagfor*) # NAG Fortran 5.3
+<         _LT_TAGVAR(archive_cmds, $1)='$CC '"$tmp_sharedflag"' $libobjs $deplibs $compiler_flags ${wl}-soname,,$soname -o $lib'
+<           ;;
+# nagend.netcdf4.2.patch
+
+
+# --------------------------------------------------------------------
+# netcdf4.4.1 patch for nagfor modified from netcdf4.2 patch - attention wrong way round, use patch -R
+# nagbegin.netcdf4.4.1.patch
+4485,4488d4819
+<       nagfor*) # NAG Fortran
+<         _LT_TAGVAR(whole_archive_flag_spec, $1)='${wl}--whole-archive`for conv in $convenience\"\"; do test  -n \"$conv\" && new_convenience=\"$new_convenience,$conv\"; done; func_echo_all \"$new_convenience\"`,-Wl,,--no-whole-archive'
+<         tmp_sharedflag='-Wl,-shared'
+<           ;;
+4515,4517d4845
+<       nagfor*) # NAG Fortran
+<         _LT_TAGVAR(archive_cmds, $1)='$CC '"$tmp_sharedflag"' $libobjs $deplibs $compiler_flags ${wl}-soname,,$soname -o $lib'
+<           ;;
+# nagend.netcdf4.4.1.patch
+
+
+# --------------------------------------------------------------------
+# netcdf4.4.2 patch for nagfor
+# nagbegin.netcdf4.4.2.patch
+357,358c357,358
+< archive_cmds="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring \$single_module"
+< archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring \$single_module \$wl-exported_symbols_list,\$output_objdir/\$libname-symbols.expsym"
+---
+> archive_cmds="\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\$rpath/\$soname \$verstring \$single_module"
+> archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\$rpath/\$soname \$verstring \$single_module \$wl-exported_symbols_list,\$output_objdir/\$libname-symbols.expsym"
+1066a1067
+>     eval "$1=\$(echo \$$1)"
+1074a1076
+>     eval "$1=\$(echo \$$1)"
+5045c5047
+<       func_warning "remember to run '$progname --finish$future_libdirs'"
+---
+>       func_warning "remember to run '$progname --finish $future_libdirs'"
+5050c5052
+<       exec_cmd='$SHELL "$progpath" $preserve_args --finish$current_libdirs'
+---
+>       exec_cmd='$SHELL "$progpath" $preserve_args --finish $current_libdirs'
+11702,11703c11704,11705
+< archive_cmds="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring \$single_module"
+< archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring \$single_module \$wl-exported_symbols_list,\$output_objdir/\$libname-symbols.expsym"
+---
+> archive_cmds="\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\$rpath/\$soname \$verstring \$single_module"
+> archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\$rpath/\$soname \$verstring \$single_module \$wl-exported_symbols_list,\$output_objdir/\$libname-symbols.expsym"
+11851,11852c11853,11854
+< archive_cmds="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring \$single_module"
+< archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring \$single_module \$wl-exported_symbols_list,\$output_objdir/\$libname-symbols.expsym"
+---
+> archive_cmds="\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\$rpath/\$soname \$verstring \$single_module"
+> archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\$rpath/\$soname \$verstring \$single_module \$wl-exported_symbols_list,\$output_objdir/\$libname-symbols.expsym"
+# nagend.netcdf4.4.2.patch
