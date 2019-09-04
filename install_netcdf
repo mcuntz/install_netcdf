@@ -75,11 +75,9 @@
 #   install homebrew with
 #     /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 #   install the following packages via homebrew by typing: brew install <PACKAGE>
-#     brew install gcc netcdf cmake udunits proj jasper gsl
+#     for i in gcc netcdf cmake udunits proj jasper gsl ; do brew install ${i} ; done
 #     brew cask install java
-#     brew install antlr@2 geos gdal ffmpeg enscript htop
-#     brew install nco
-#     brew install ncview
+#     for i in antlr@2 geos gdal nco ncview ; do brew install ${i} ; done
 #   Set CMAKE below to cmake.
 #   All libraries should link into /usr/local. If a package cannot link properly then try
 #     brew link <PACKAGE>
@@ -104,12 +102,8 @@
 #   such as netcdf4-fortran, netcdf3, openmpi, mpich, giving the list of your Fortran compilers below, e.g.
 #     fortran_compilers="gfortran nagfor pgfortran ifort"
 #   Also install cdo with the script because of the dropped science support of homebrew.
-#   Homebrew can also be used exclusivley for the additional packages
-#     geos
-#     gdal
-#     ffmpeg
-#     enscript
-#     htop
+#   Homebrew can also be used for the additional packages
+#     for i in wget imagemagick ffmpeg enscript htop ; do brew install ${i} ; done
 #
 # Note on (Scientific) Linux
 #   zlib installed by default.
@@ -136,10 +130,10 @@
 #     dotiff=0
 #     doantlr=0
 #
-# authors: Matthias Cuntz, Stephan Thober
+# authors: Matthias Cuntz with testing by Stephan Thober
 # created: Oct 2014
 #
-# Copyright (c) 2014-2018 Matthias Cuntz - mc (at) macu (dot) de
+# Copyright (c) 2014-2019 Matthias Cuntz - mc (at) macu (dot) de
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -191,7 +185,7 @@ function usage () {
     printf "Examples\n"
     printf "    ${pprog}\n"
     printf "\n"
-    printf "Copyright (c) 2014-2018 Matthias Cuntz - mc (at) macu (dot) de\n"
+    printf "Copyright (c) 2014-2019 Matthias Cuntz - mc (at) macu (dot) de\n"
 }
 while getopts "h" Option ; do
     case ${Option} in
@@ -230,9 +224,9 @@ dohdf5=0                 # make check works but might fail on Mac because of dyl
   # hdf5code=4301          # 1.10.1: 4301
   # hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
 donetcdf4=0              # make check might stop, just make check and sudo make install manually
-  netcdf4=4.6.1          # 4.4.1.1 works; 4.5.0 is not working with mo_netcdf
+  netcdf4=4.6.3          #
 donetcdf4_fortran=0      # make check might stop, just make check and sudo make install manually
-  netcdf4_fortran=4.4.4  # 4.4.3 still works with netcd4=4.3.x
+  netcdf4_fortran=4.4.5  # current homebrew version 4.6.3 works only with Fortran version 4.4.5
 donetcdf3=0              # pgfortran might stop, just make, make check, sudo make install manually
   netcdf3=3.6.3
 doudunits=0
@@ -248,16 +242,16 @@ doproj4=0
 dojasper=0
   jasper=1.900.1         # 1.900.29; teste 2.0.14, but not compatible with grib_api
 doeccodes=0              # for cdo > 1.9.0
-  eccodes=2.7.3          # make check fails (bufr not installed): ignore
+  eccodes=2.13.1         # make check fails (bufr not installed): ignore
                          # just cd into build directory eccodes-${eccodes}-Source/build and sudo make install
 dogrib_api=0
   grib_api=1.26.1
 docdo=0
-  cdo=1.9.3              # download path has a number that changes with version, e.g.
+  cdo=1.9.7.1            # download path has a number that changes with version, e.g.
                          #     https://code.zmaw.de/attachments/download/9444/cdo-1.6.7.tar.gz
                          # check number at https://code.zmaw.de/projects/cdo/files
-  cdodownpath=16435      # 1.6.3: 7220; 1.6.4: 8376; 1.6.6: 9367; 1.6.7: 9444; 1.7.2: 12760; 1.9.1: 15653;
-                         # 1.9.2: 16035; 1.9.3: 16435
+  cdodownpath=20124      # 1.6.3: 7220; 1.6.4: 8376; 1.6.6: 9367; 1.6.7: 9444; 1.7.2: 12760; 1.9.1: 15653;
+                         # 1.9.2: 16035; 1.9.3: 16435; 1.9.7.1: 20124
 doncview=0
   ncview=2.1.8
 dogsl=0
@@ -267,14 +261,14 @@ doantlr=0
 donco=0
   nco=4.7.4
 doopenmpi=0
-  openmpi=3.0.1          # Does not work with pgfortran yet, make install fails; do manually,
+  openmpi=3.1.4          # Does not work with pgfortran yet, make install fails; do manually,
                          # where 20 in libmpi_usempif08.20.dylib stands for openmpi=2.0.x
                          #   cd openmpi-* ; cd ompi/mpi/fortran/use-mpi-f08/.libs/
                          #   ln -sf ../libmpi_usempif08.la libmpi_usempif08.20.dylib
                          #   cd - ; sudo make install
                          #   cd .. ; \rm -r openmpi-*
 dompich=0
-  mpich=3.3  
+  mpich=3.3.1
 
 # Python-Matplotlib
 # Georeferencing in basemap
@@ -328,17 +322,15 @@ else
     EXTRA_LDFLAGS="-Wl,-rpath=${prefix}/lib"
 fi
 
-# Path to zlib's include/ lib/ directories (e.g. lib/libz.*)
-if [[ "${sys}" == "darwin" ]] ; then
-    ZPATH=${prefix}
-else
-    ZPATH=/usr
-fi
-
+# Path to zlib's and pthread's include/ lib/ directories (e.g. lib/libz.*)
 # Path to curl lib (libcurl.*) for cdo
 if [[ "${sys}" == "darwin" ]] ; then
+    ZPATH=${prefix}
+    PPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr
     CURLLIB=/usr/lib
 else
+    ZPATH=/usr
+    PPATH=/usr
     if [[ ${kern} == *microsoft ]] ; then
         CURLLIB=/usr/lib/x86_64-linux-gnu
     else
@@ -836,7 +828,7 @@ if [[ ${dohdf5} -eq 1 ]] ; then
         cleanup ${base} ${zbase}
     else
         http=http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${hdf5%.*}/hdf5-${hdf5}/src
-        download_configure_make_check_install ${base} ${zbase} ${http} " " "--with-zlib=${ZPATH} --with-szlib=${prefix}"
+        download_configure_make_check_install ${base} ${zbase} ${http} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH}"
     fi
 fi
 
@@ -1030,25 +1022,6 @@ if [[ ${dojasper} -eq 1 ]] ; then
     download_configure_make_check_install ${base} ${zbase} ${http} " " "--enable-shared"
 fi
 
-# build grib_api
-if [[ ${dogrib_api} -eq 1 ]] ; then
-    printf 'build grib_api\n'
-    base=grib_api-${grib_api}-Source
-    zbase=${base}.tar.gz
-    http=https://software.ecmwf.int/wiki/display/GRIB/Releases
-    if [[ "${grib_api}" > "1.16.0" ]] ; then
-        download_configure_make_check_install ${base} ${zbase} ${http}
-    else
-        download_unpack ${base} ${zbase} ${http}
-        # change all files to be writeable, otherwise rm asks to override -r--r--r on Mac OS X
-        chmod -R u+w ${base}
-        # make install
-        configure_make_check_install ${base}
-        cd ..
-        cleanup ${base} ${zbase}
-    fi
-fi
-
 # build eccodes
 if [[ ${doeccodes} -eq 1 ]] ; then
     printf 'build eccodes\n'
@@ -1066,6 +1039,25 @@ if [[ ${doeccodes} -eq 1 ]] ; then
     # sudo make install
     # cd ../..
     # cleanup ${base} ${zbase}
+fi
+
+# build grib_api
+if [[ ${dogrib_api} -eq 1 ]] ; then
+    printf 'build grib_api\n'
+    base=grib_api-${grib_api}-Source
+    zbase=${base}.tar.gz
+    http=https://software.ecmwf.int/wiki/display/GRIB/Releases
+    if [[ "${grib_api}" > "1.16.0" ]] ; then
+        download_configure_make_check_install ${base} ${zbase} ${http}
+    else
+        download_unpack ${base} ${zbase} ${http}
+        # change all files to be writeable, otherwise rm asks to override -r--r--r on Mac OS X
+        chmod -R u+w ${base}
+        # make install
+        configure_make_check_install ${base}
+        cd ..
+        cleanup ${base} ${zbase}
+    fi
 fi
 
 # build cdo
@@ -1086,7 +1078,7 @@ if [[ ${docdo} -eq 1 ]] ; then
     if [[ ${cdo} < '1.9.1' ]] ; then
         configure_make_check_install ${base} " " "--prefix=${prefix} --with-szlib=yes --with-hdf5=yes --with-jasper=${prefix} --with-proj=${prefix} --with-udunits2=${prefix}/lib --with-curl=${CURLLIB} --with-netcdf=${prefix} --with-grib_api=yes"
     else
-        configure_make_check_install ${base} " " "--prefix=${prefix} --with-szlib=yes --with-hdf5=yes --with-jasper=${prefix} --with-proj=${prefix} --with-udunits2=${prefix}/lib --with-curl=${CURLLIB} --with-netcdf=${prefix} --with-eccodes=yes"
+        configure_make_check_install ${base} " " "--prefix=${prefix} --with-szlib=yes --with-hdf5=yes --with-jasper=${prefix} --with-proj=${prefix} --with-udunits2=${prefix}/lib --with-curl=${CURLLIB} --with-netcdf=${prefix} --with-eccodes=${prefix}"
     fi
     cd ..
     cleanup ${base} ${zbase}
@@ -1244,7 +1236,7 @@ if [[ ${dompich} -eq 1 ]] ; then
     printf 'build mpich\n'
     base=mpich-${mpich}
     zbase=${base}.tar.gz
-    http=http://www.mpich.org/static/downloads/${mpich}/mpich-${mpich}.tar.gz
+    http=http://www.mpich.org/static/downloads/${mpich}
     download_unpack ${base} ${zbase} ${http}
     # configure / make / check / install for all fortran compilers
     for f_comp in ${fortran_compilers} ; do
