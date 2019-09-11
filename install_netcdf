@@ -227,6 +227,7 @@ donetcdf4=0              # make check might stop, just make check and sudo make 
   netcdf4=4.6.3          #
 donetcdf4_fortran=0      # make check might stop, just make check and sudo make install manually
   netcdf4_fortran=4.4.5  # current homebrew version 4.6.3 works only with Fortran version 4.4.5
+                         #   but still problem with one F77 test because C returns "No error" instead of -40
 donetcdf3=0              # pgfortran might stop, just make, make check, sudo make install manually
   netcdf3=3.6.3
 doudunits=0
@@ -304,7 +305,7 @@ dohtop=0
 # fortran_compilers="gfortran nagfor pgfortran ifort"
 fortran_compilers="gfortran"
 # fortran_compilers="nagfor"
-# fortran_compilers="/opt/pgi/osx86-64/18.4/bin/pgfortran"
+# fortran_compilers="/opt/pgi/osx86-64/19.4/bin/pgfortran"
 # source /opt/intel/bin/compilervars.sh intel64
 # fortran_compilers="ifort"
 
@@ -380,62 +381,62 @@ fi
 # Functions
 
 function download () {
-    zbase=${1}
-    http=${2}
+    izbase=${1}
+    ihttp=${2}
     # download
-    if [[ ${dodownload} -eq 1 ]] ; then curl ${FTPFLAG} -L -o ${zbase} ${http}/${zbase} ; fi
+    if [[ ${dodownload} -eq 1 ]] ; then curl ${FTPFLAG} -L -o ${izbase} ${ihttp}/${izbase} ; fi
 }
 
 function download_github () {
-    zbase=${1}
-    http=${2}
+    izbase=${1}
+    ihttp=${2}
     # download
-    if [[ ${dodownload} -eq 1 ]] ; then curl -L -o ${zbase} ${http} ; fi
+    if [[ ${dodownload} -eq 1 ]] ; then curl -L -o ${izbase} ${ihttp} ; fi
 }
 
 function unpack () {
-    zbase=${1}
-    base=${2}
+    izbase=${1}
+    ibase=${2}
     # extract
-    case ${zbase#${base}} in
-        *.tar)     tar -xvf  ${zbase} ;;
-        *.tar.bz)  tar -xvjf ${zbase} ;;
-        *.tar.bz2) tar -xvjf ${zbase} ;;
-        *.tar.gz)  tar -xvzf ${zbase} ;;
-        *.tar.z)   tar -xvZf ${zbase} ;;
-        *.tar.Z)   tar -xvZf ${zbase} ;;
-        *.tar.xz)  tar -xvJf ${zbase} ;;
-        *.zip)     unzip     ${zbase} ;;
-        *) printf "Error: compression not known ${zbase#${base}}\n\n" 1>&2; exit 1;;
+    case ${izbase#${ibase}} in
+        *.tar)     tar -xvf  ${izbase} ;;
+        *.tar.bz)  tar -xvjf ${izbase} ;;
+        *.tar.bz2) tar -xvjf ${izbase} ;;
+        *.tar.gz)  tar -xvzf ${izbase} ;;
+        *.tar.z)   tar -xvZf ${izbase} ;;
+        *.tar.Z)   tar -xvZf ${izbase} ;;
+        *.tar.xz)  tar -xvJf ${izbase} ;;
+        *.zip)     unzip     ${izbase} ;;
+        *) printf "Error: compression not known ${izbase#${ibase}}\n\n" 1>&2; exit 1;;
     esac
 }
 
 function download_unpack () {
-    base=${1}
-    zbase=${2}
-    http=${3}
+    ibase=${1}
+    izbase=${2}
+    ihttp=${3}
     # download
-    download ${zbase} ${http}
+    download ${izbase} ${ihttp}
     # extract
-    unpack ${zbase} ${base}
+    unpack ${izbase} ${ibase}
 }
 
 function download_github_unpack () {
-    base=${1}
-    zbase=${2}
-    http=${3}
+    ibase=${1}
+    izbase=${2}
+    ihttp=${3}
     # download
-    download_github ${zbase} ${http}
+    download_github ${izbase} ${ihttp}
     # extract
-    unpack ${zbase} ${base}
+    unpack ${izbase} ${ibase}
 }
 
 function configure_make () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # cd
-    cd ${base}
+    cd ${ibase}
     # configure
     echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
         CPPFLAGS=\"-I${prefix}/include ${EXTRA_CPPFLAGS}\" \
@@ -448,11 +449,11 @@ function configure_make () {
 }
 
 function configure_make_nocpp () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # cd
-    cd ${base}
+    cd ${ibase}
     # configure
     echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
         CPPFLAGS=\"${EXTRA_CPPFLAGS}\" \
@@ -465,11 +466,11 @@ function configure_make_nocpp () {
 }
 
 function cmake_make () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # cd
-    cd ${base}
+    cd ${ibase}
     # build dir
     mkdir build
     cd build
@@ -503,41 +504,41 @@ function check_test () {
 }
 
 function configure_make_check () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # make
-    configure_make ${base} "${bconf}" "${aconf}"
+    configure_make ${ibase} "${bconf}" "${aconf}"
     # check
     check
 }
 
 function cmake_make_check () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # make
-    cmake_make ${base} "${bconf}" "${aconf}"
+    cmake_make ${ibase} "${bconf}" "${aconf}"
     # check
     check
 }
 
 function configure_make_test () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # make
-    configure_make ${base} "${bconf}" "${aconf}"
+    configure_make ${ibase} "${bconf}" "${aconf}"
     # check
     check_test
 }
 
 function cmake_make_test () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # make
-    cmake_make ${base} "${bconf}" "${aconf}"
+    cmake_make ${ibase} "${bconf}" "${aconf}"
     # check
     check_test
 }
@@ -554,11 +555,11 @@ function install () {
 }
 
 function configure_make_check_install () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # make
-    configure_make ${base} "${bconf}" "${aconf}"
+    configure_make ${ibase} "${bconf}" "${aconf}"
     # check
     check
     # install
@@ -566,11 +567,11 @@ function configure_make_check_install () {
 }
 
 function configure_make_nocpp_check_install () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # make
-    configure_make_nocpp ${base} "${bconf}" "${aconf}"
+    configure_make_nocpp ${ibase} "${bconf}" "${aconf}"
     # check
     check
     # install
@@ -578,11 +579,11 @@ function configure_make_nocpp_check_install () {
 }
 
 function cmake_make_check_install () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # make
-    cmake_make ${base} "${bconf}" "${aconf}"
+    cmake_make ${ibase} "${bconf}" "${aconf}"
     # check
     check
     # install
@@ -590,11 +591,11 @@ function cmake_make_check_install () {
 }
 
 function cmake_make_test_install () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # make
-    cmake_make ${base} "${bconf}" "${aconf}"
+    cmake_make ${ibase} "${bconf}" "${aconf}"
     # check
     check_test
     # install
@@ -621,13 +622,26 @@ function apply_netcdf_fortran_nag_patch () {
             sed -i -e 's/call EXIT/stop/' ${base}/nf_test/nf_test.F
             ;;
         4.4.4) # do not patch libtool but change F77 test files
-            sed -i -e 's/call EXIT/stop/' ${base}/nf_test/nf_test.F
+            sed -i -e 's/call EXIT/stop/'  ${base}/nf_test/nf_test.F
             sed -i -e 's/&[[:blank:]]*$//' ${base}/nf_test/ftst_path.F
             sed -i -e 's/&[[:blank:]]*$//' ${base}/nf_test/ftst_rengrps.F
             sed -i -e 's/&[[:blank:]]*$//' ${base}/nf03_test/test03_read.F
             sed -i -e 's/&[[:blank:]]*$//' ${base}/nf03_test/test03_write.F
             sed -i -e 's/&[[:blank:]]*$//' ${base}/nf03_test/util03.F
             sed -i -e 's/&[[:blank:]]*$//' ${base}/nf03_test/f03tst_open_mem.F
+            sed -i -e '/#endif/i\
+#else\
+subroutine dummy\
+end subroutine dummy\
+' ${base}/fortran/nf_logging.F90
+            ;;
+        4.4.5) # NAG does not allow compiling empty source files
+            sed -i -e 's/include/ include/' ${base}/nf_test/ftst_rengrps.F
+            sed -i -e '/#endif/i\
+#else\
+subroutine dummy\
+end subroutine dummy\
+' ${base}/fortran/nf_logging.F90
             ;;
         *)
             true
@@ -637,11 +651,11 @@ function apply_netcdf_fortran_nag_patch () {
 }
 
 function configure_make_check_install_netcdf_fortran_nag () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # cd
-    cd ${base}
+    cd ${ibase}
     # configure
     echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
         CPPFLAGS=\"-I${prefix}/include ${EXTRA_CPPFLAGS}\" \
@@ -653,7 +667,7 @@ function configure_make_check_install_netcdf_fortran_nag () {
     if [[ "${netcdf4_fortran}" > "4.1" ]] ; then
         cd ..
         apply_netcdf_fortran_nag_patch
-        cd ${base}
+        cd ${ibase}
     fi
     # make
     make -j ${ncpu}
@@ -664,11 +678,11 @@ function configure_make_check_install_netcdf_fortran_nag () {
 }
 
 function configure_make_nocpp_check_install_netcdf_fortran_nag () {
-    base=${1}
+    ibase=${1}
     bconf=${2}
     aconf=${3}
     # cd
-    cd ${base}
+    cd ${ibase}
     # configure
     echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
         CPPFLAGS=\"${EXTRA_CPPFLAGS}\" \
@@ -680,7 +694,7 @@ function configure_make_nocpp_check_install_netcdf_fortran_nag () {
     if [[ "${netcdf4_fortran}" > "4.1" ]] ; then
         cd ..
         apply_netcdf_fortran_nag_patch
-        cd ${base}
+        cd ${ibase}
     fi
     # make
     make -j ${ncpu}
@@ -691,52 +705,52 @@ function configure_make_nocpp_check_install_netcdf_fortran_nag () {
 }
 
 function cleanup () {
-    base=${1}
-    zbase=${2}
+    ibase=${1}
+    izbase=${2}
     # clean up
     if [[ ${dosudo} -eq 1 ]] ; then
-        sudo rm -rf ${base}
-        if [[ ${dormtar} -eq 1 ]] ; then sudo rm ${zbase} ; fi
+        sudo rm -rf ${ibase}
+        if [[ ${dormtar} -eq 1 ]] ; then sudo rm ${izbase} ; fi
     else
-        rm -rf ${base}
-        if [[ ${dormtar} -eq 1 ]] ; then rm ${zbase} ; fi
+        rm -rf ${ibase}
+        if [[ ${dormtar} -eq 1 ]] ; then rm ${izbase} ; fi
     fi
 }
 
 function download_configure_make_check_install () {
-    base=${1}
-    zbase=${2}
-    http=${3}
+    ibase=${1}
+    izbase=${2}
+    ihttp=${3}
     bconf=${4}
     aconf=${5}
-    download_unpack ${base} ${zbase} ${http}
-    configure_make_check_install ${base} "${bconf}" "${aconf}"
+    download_unpack ${ibase} ${izbase} ${ihttp}
+    configure_make_check_install ${ibase} "${bconf}" "${aconf}"
     cd ..
-    cleanup ${base} ${zbase}
+    cleanup ${ibase} ${izbase}
 }
 
 function download_cmake_make_check_install () {
-    base=${1}
-    zbase=${2}
-    http=${3}
+    ibase=${1}
+    izbase=${2}
+    ihttp=${3}
     bconf=${4}
     aconf=${5}
-    download_unpack ${base} ${zbase} ${http}
-    cmake_make_check_install ${base} "${bconf}" "${aconf}"
+    download_unpack ${ibase} ${izbase} ${ihttp}
+    cmake_make_check_install ${ibase} "${bconf}" "${aconf}"
     cd ../..
-    cleanup ${base} ${zbase}
+    cleanup ${ibase} ${izbase}
 }
 
 function download_cmake_make_test_install () {
-    base=${1}
-    zbase=${2}
-    http=${3}
+    ibase=${1}
+    izbase=${2}
+    ihttp=${3}
     bconf=${4}
     aconf=${5}
-    download_unpack ${base} ${zbase} ${http}
-    cmake_make_test_install ${base} "${bconf}" "${aconf}"
+    download_unpack ${ibase} ${izbase} ${ihttp}
+    cmake_make_test_install ${ibase} "${bconf}" "${aconf}"
     cd ../..
-    cleanup ${base} ${zbase}
+    cleanup ${ibase} ${izbase}
 }
 
 # --------------------------------------------------------------------
@@ -858,6 +872,9 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
     zbase=${base}.tar.gz
     http=https://codeload.github.com/Unidata/netcdf-fortran/tar.gz/v${netcdf4_fortran}
     download_github_unpack ${base} ${zbase} ${http}
+    if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then
+        sed -i -e 's/include/ include/' ${base}/nf_test/ftst_rengrps.F
+    fi
     # configure / make / check / install for all fortran compilers
     for f_comp in ${fortran_compilers} ; do
         printf "Build ${base}-$(basename ${f_comp})\n"
@@ -881,7 +898,21 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
                 ;;
             *nag*)
+		if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then # Take configure script of 4.4.4
+    		    netcdf4_fortran1=4.4.4
+    		    base1=netcdf-fortran-${netcdf4_fortran1}
+    		    zbase1=${base1}.tar.gz
+    		    http1=https://codeload.github.com/Unidata/netcdf-fortran/tar.gz/v${netcdf4_fortran1}
+    		    download_github_unpack ${base1} ${zbase1} ${http1}
+    		    mv ${base}/configure ${base}/configure.save
+    		    sed -e "/macro_version='2.4.2'/s/=.*/='2.4.6'/" -e "/macro_revision='1.3337'/s/=.*/='2.4.6'/" ${base1}/configure > ${base}/configure
+    		    chmod +x ${base}/configure
+    		    cleanup ${base1} ${zbase1}
+		fi
                 configure_make_nocpp_check_install_netcdf_fortran_nag ${base} "FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full' FFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full'" " "
+		if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then
+    		    mv ${base}/configure.save ${base}/configure
+		fi
                 ;;
             *ifort*)
                 if [[ "${sys}" == "darwin" ]] ; then
