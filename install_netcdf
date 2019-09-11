@@ -218,11 +218,11 @@ doszip=0
   szip=2.1.1
 dohdf5=0                 # make check works but might fail on Mac because of dylib circular dependencies
                          # just cd into dir and sudo make install manually
-  hdf5=1.8.20            # 1.10.2 does not work with netcdf yet; stay with 1.8.20
-  # hdf5=1.10.1            # download path for hdf5 > 1.10 is https://www.hdfgroup.org/package/source-gzip/?wpdmdl=${hdf5code}
+  # hdf5=1.8.20            # 1.10.2 does not work with netcdf yet; stay with 1.8.20
+  hdf5=1.10.5            # download path for hdf5 > 1.10 is https://www.hdfgroup.org/package/source-gzip/?wpdmdl=${hdf5code}
                          # check code at https://www.hdfgroup.org/package/source-gzip/
-  # hdf5code=4301          # 1.10.1: 4301
-  # hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
+  hdf5code=13571         # 1.10.1: 4301; 1.10.5: 13571
+  hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
 donetcdf4=0              # make check might stop, just make check and sudo make install manually
   netcdf4=4.6.3          #
 donetcdf4_fortran=0      # make check might stop, just make check and sudo make install manually
@@ -326,7 +326,8 @@ fi
 # Path to zlib's and pthread's include/ lib/ directories (e.g. lib/libz.*)
 # Path to curl lib (libcurl.*) for cdo
 if [[ "${sys}" == "darwin" ]] ; then
-    ZPATH=${prefix}
+    # ZPATH=${prefix}
+    ZPATH=/usr
     PPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr
     CURLLIB=/usr/lib
 else
@@ -833,13 +834,15 @@ if [[ ${dohdf5} -eq 1 ]] ; then
     if [[ "${hdf5}" > "1.10.0" ]] ; then
         http=https://www.hdfgroup.org/package/source-gzip/?wpdmdl=${hdf5code}
         download_github_unpack ${base} ${zbase} ${http}
-        cmake_make ${base} "${bconf}" "${aconf}"
+	# iprefix=${prefix}/hdf5-${hdf5}
+        cmake_make ${base} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH}"
         if [[ ${hdf5check} -eq 1 ]] ; then
             check_test
         fi
         install
         cd ../..
         cleanup ${base} ${zbase}
+	# iprefix=${prefix}
     else
         http=http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${hdf5%.*}/hdf5-${hdf5}/src
         download_configure_make_check_install ${base} ${zbase} ${http} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH}"
