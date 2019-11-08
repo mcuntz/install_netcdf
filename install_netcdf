@@ -213,7 +213,7 @@ dosudo=1     # 1: install in ${prefix} with sudo, 0: install as user
 dozlib=0
   zlib=1.2.11
 doopenssl=0
-  openssl=1.1.1-pre6
+  openssl=1.1.1d
 doszip=0
   szip=2.1.1
 dohdf5=0                 # make check works but might fail on Mac because of dylib circular dependencies
@@ -224,34 +224,34 @@ dohdf5=0                 # make check works but might fail on Mac because of dyl
   hdf5code=13571         # 1.10.1: 4301; 1.10.5: 13571
   hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
 donetcdf4=0              # make check might stop, just make check and sudo make install manually
-  netcdf4=4.6.3          #
+  netcdf4=4.7.2          #
 donetcdf4_fortran=0      # make check might stop, just make check and sudo make install manually
-  netcdf4_fortran=4.4.5  # current homebrew version 4.6.3 works only with Fortran version 4.4.5
+  netcdf4_fortran=4.5.2  # current homebrew version 4.6.3 works only with Fortran version 4.4.5
                          #   but still problem with one F77 test because C returns "No error" instead of -40
 donetcdf3=0              # pgfortran might stop, just make, make check, sudo make install manually
   netcdf3=3.6.3
 doudunits=0
   udunits=2.2.26
 dolibpng=0
-  libpng=1.6.34
+  libpng=1.6.37
 dolibjpeg=0
   libjpeg=9c
 dotiff=0
-  tiff=4.0.9
+  tiff=4.0.10
 doproj4=0
-  proj4=5.0.1
+  proj4=6.2.1
 dojasper=0
   jasper=1.900.1         # 1.900.29; teste 2.0.14, but not compatible with grib_api
 doeccodes=0              # for cdo > 1.9.0
-  eccodes=2.13.1         # make check fails (bufr not installed): ignore
+  eccodes=2.14.1         # make check fails (bufr not installed): ignore
                          # just cd into build directory eccodes-${eccodes}-Source/build and sudo make install
 dogrib_api=0
   grib_api=1.26.1
 docdo=0
-  cdo=1.9.7.1            # download path has a number that changes with version, e.g.
+  cdo=1.9.8            # download path has a number that changes with version, e.g.
                          #     https://code.zmaw.de/attachments/download/9444/cdo-1.6.7.tar.gz
                          # check number at https://code.zmaw.de/projects/cdo/files
-  cdodownpath=20124      # 1.6.3: 7220; 1.6.4: 8376; 1.6.6: 9367; 1.6.7: 9444; 1.7.2: 12760; 1.9.1: 15653;
+  cdodownpath=20826      # 1.6.3: 7220; 1.6.4: 8376; 1.6.6: 9367; 1.6.7: 9444; 1.7.2: 12760; 1.9.1: 15653;
                          # 1.9.2: 16035; 1.9.3: 16435; 1.9.7.1: 20124
 doncview=0
   ncview=2.1.8
@@ -260,9 +260,9 @@ dogsl=0
 doantlr=0
   antlr=2.7.7            # one check fails with g++ clang 7.0.x on Mac OS X 10.11 (El Capitan) but can be ignored
 donco=0
-  nco=4.7.4
+  nco=4.8.1
 doopenmpi=0
-  openmpi=3.1.4          # Does not work with pgfortran yet, make install fails; do manually,
+  openmpi=4.0.1          # Does not work with pgfortran yet, make install fails; do manually,
                          # where 20 in libmpi_usempif08.20.dylib stands for openmpi=2.0.x
                          #   cd openmpi-* ; cd ompi/mpi/fortran/use-mpi-f08/.libs/
                          #   ln -sf ../libmpi_usempif08.la libmpi_usempif08.20.dylib
@@ -326,8 +326,8 @@ fi
 # Path to zlib's and pthread's include/ lib/ directories (e.g. lib/libz.*)
 # Path to curl lib (libcurl.*) for cdo
 if [[ "${sys}" == "darwin" ]] ; then
-    # ZPATH=${prefix}
-    ZPATH=/usr
+     ZPATH=${prefix}
+    #ZPATH=/usr
     PPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr
     CURLLIB=/usr/lib
 else
@@ -835,7 +835,7 @@ if [[ ${dohdf5} -eq 1 ]] ; then
         http=https://www.hdfgroup.org/package/source-gzip/?wpdmdl=${hdf5code}
         download_github_unpack ${base} ${zbase} ${http}
 	# iprefix=${prefix}/hdf5-${hdf5}
-        cmake_make ${base} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH}"
+        cmake_make ${base} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH} --disable-hl"
         if [[ ${hdf5check} -eq 1 ]] ; then
             check_test
         fi
@@ -845,7 +845,7 @@ if [[ ${dohdf5} -eq 1 ]] ; then
 	# iprefix=${prefix}
     else
         http=http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${hdf5%.*}/hdf5-${hdf5}/src
-        download_configure_make_check_install ${base} ${zbase} ${http} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH}"
+        download_configure_make_check_install ${base} ${zbase} ${http} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH} --disable-hl"
     fi
 fi
 
@@ -1040,7 +1040,10 @@ if [[ ${doproj4} -eq 1 ]] ; then
     base=proj-${proj4}
     zbase=${base}.tar.gz
     http=https://download.osgeo.org/proj
-    download_configure_make_check_install ${base} ${zbase} ${http}
+    if [[ "${sys}" == "darwin" ]] ; then
+	extravars="CC=/usr/bin/clang CXX=/usr/bin/clang++"
+    fi
+    download_configure_make_check_install ${base} ${zbase} ${http} ${extravars}
 fi
 
 # build jasper
@@ -1188,6 +1191,11 @@ if [[ ${doantlr} -eq 1 ]] ; then
         sed -i '19 a #include <stdlib.h>' ${base}/lib/cpp/antlr/CharInputBuffer.hpp
         sed -i '26 a #include <stdio.h>' ${base}/lib/cpp/antlr/CharScanner.hpp
         sed -i '27 a #include <strings.h>' ${base}/lib/cpp/antlr/CharScanner.hpp
+    else
+        ex -s -c '19i|#include <stdio.h>' -c x ${base}/lib/cpp/antlr/CharInputBuffer.hpp
+        ex -s -c '19i|#include <stdlib.h>' -c x ${base}/lib/cpp/antlr/CharInputBuffer.hpp
+        ex -s -c '26i|#include <stdio.h>' -c x ${base}/lib/cpp/antlr/CharScanner.hpp
+	ex -s -c '27i|#include <strings.h>' -c x ${base}/lib/cpp/antlr/CharScanner.hpp
     fi
     configure_make ${base}
     # if [[ "${sys}" != "darwin" ]] ; then
