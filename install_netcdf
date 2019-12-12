@@ -167,7 +167,7 @@ kern=$(uname -r | tr A-Z a-z)
 if [[ "${sys}" == "darwin" ]] ; then
     ncpu=$(sysctl -n hw.ncpu)
 else
-    ncpu=$(grep ^processor /proc/cpuinfo | wc -l)
+    ncpu=$(( 2 * $(grep ^processor /proc/cpuinfo | wc -l) ))
 fi
 
 # --------------------------------------------------------------------
@@ -213,87 +213,86 @@ dosudo=1     # 1: install in ${prefix} with sudo, 0: install as user
 dozlib=0
   zlib=1.2.11
 doopenssl=0
-  openssl=1.1.1-pre6
+  openssl=1.1.1d
 doszip=0
   szip=2.1.1
 dohdf5=0                 # make check works but might fail on Mac because of dylib circular dependencies
                          # just cd into dir and sudo make install manually
-  # hdf5=1.8.20            # 1.10.2 does not work with netcdf yet; stay with 1.8.20
   hdf5=1.10.5            # download path for hdf5 > 1.10 is https://www.hdfgroup.org/package/source-gzip/?wpdmdl=${hdf5code}
                          # check code at https://www.hdfgroup.org/package/source-gzip/
-  hdf5code=13571         # 1.10.1: 4301; 1.10.5: 13571
+  hdf5code=13571         # download path has a number that changes with version, e.g.
+                         # 1.10.1: 4301; 1.10.5: 13571
   hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
 donetcdf4=0              # make check might stop, just make check and sudo make install manually
-  netcdf4=4.6.3          #
+  netcdf4=4.7.3          #
 donetcdf4_fortran=0      # make check might stop, just make check and sudo make install manually
-  netcdf4_fortran=4.4.5  # current homebrew version 4.6.3 works only with Fortran version 4.4.5
-                         #   but still problem with one F77 test because C returns "No error" instead of -40
+  netcdf4_fortran=4.5.2
 donetcdf3=0              # pgfortran might stop, just make, make check, sudo make install manually
   netcdf3=3.6.3
 doudunits=0
   udunits=2.2.26
 dolibpng=0
-  libpng=1.6.34
+  libpng=1.6.37
 dolibjpeg=0
   libjpeg=9c
 dotiff=0
-  tiff=4.0.9
+  tiff=4.1.0
 doproj4=0
-  proj4=5.0.1
+  proj4=6.2.1
 dojasper=0
-  jasper=1.900.1         # 1.900.29; teste 2.0.14, but not compatible with grib_api
+  jasper=1.900.1         # 1.900.29; tested 2.0.14, but not compatible with grib_api
 doeccodes=0              # for cdo > 1.9.0
-  eccodes=2.13.1         # make check fails (bufr not installed): ignore
-                         # just cd into build directory eccodes-${eccodes}-Source/build and sudo make install
+  eccodes=2.15.0         # make check fails (bufr not installed): ignore
+                         #   just cd into build directory eccodes-${eccodes}-Source/build and sudo make install
 dogrib_api=0
-  grib_api=1.26.1
+  grib_api=1.28.0
 docdo=0
-  cdo=1.9.7.1            # download path has a number that changes with version, e.g.
+  cdo=1.9.8              # download path has a number that changes with version, e.g.
                          #     https://code.zmaw.de/attachments/download/9444/cdo-1.6.7.tar.gz
                          # check number at https://code.zmaw.de/projects/cdo/files
-  cdodownpath=20124      # 1.6.3: 7220; 1.6.4: 8376; 1.6.6: 9367; 1.6.7: 9444; 1.7.2: 12760; 1.9.1: 15653;
-                         # 1.9.2: 16035; 1.9.3: 16435; 1.9.7.1: 20124
+  cdodownpath=20826      # 1.6.3: 7220; 1.6.4: 8376; 1.6.6: 9367; 1.6.7: 9444; 1.7.2: 12760; 1.9.1: 15653;
+                         # 1.9.2: 16035; 1.9.3: 16435; 1.9.7.1: 20124; 1.9.8: 20826
 doncview=0
   ncview=2.1.8
 dogsl=0
-  gsl=2.4                # > 1.12 has some strange chmod a-w for gsl-config and gsl.pc
+  gsl=2.6                # > 1.12 has some strange chmod a-w for gsl-config and gsl.pc
 doantlr=0
   antlr=2.7.7            # one check fails with g++ clang 7.0.x on Mac OS X 10.11 (El Capitan) but can be ignored
 donco=0
-  nco=4.7.4
+  nco=4.9.0
 doopenmpi=0
-  openmpi=3.1.4          # Does not work with pgfortran yet, make install fails; do manually,
+  openmpi=4.0.2          # Does not work with pgfortran yet, make install fails; do manually,
                          # where 20 in libmpi_usempif08.20.dylib stands for openmpi=2.0.x
                          #   cd openmpi-* ; cd ompi/mpi/fortran/use-mpi-f08/.libs/
                          #   ln -sf ../libmpi_usempif08.la libmpi_usempif08.20.dylib
                          #   cd - ; sudo make install
                          #   cd .. ; \rm -r openmpi-*
 dompich=0
-  mpich=3.3.1
+  mpich=3.3.2
 
 # Python-Matplotlib
 # Georeferencing in basemap
 dogeos=0                 # one check fails (< 3.6.2) on Mac OS X but can be ignored
-  geos=3.6.2
+  geos=3.8.0
 # GeoTiffs
 dogdal=0
-  gdal=2.2.4
+  gdal=3.0.2
 # Needed by ffmpeg
 doyasm=0
   yasm=1.3.0
 # Do animations/movies in matplotlib
 doffmpeg=0               # Works if installed manually
-  ffmpeg=4.0
+  ffmpeg=4.2.1
 
 
 # Optional tools
-  
+
 # 7zip is an extension of zip, e.g. used in CarboEurope database
 dop7zip=0
   p7zip=16.02
 # Old HDF format, e.g. MODIS data
 dohdf4=0
-  hdf4=4.2.13
+  hdf4=4.2.14 # downloads broken for 4.2.15
 # Text files as postscript -> pdf
 doenscript=0
   enscript=1.6.6
@@ -381,21 +380,21 @@ fi
 # --------------------------------------------------------------------
 # Functions
 
-function download () {
+function download() {
     izbase=${1}
     ihttp=${2}
     # download
     if [[ ${dodownload} -eq 1 ]] ; then curl ${FTPFLAG} -L -o ${izbase} ${ihttp}/${izbase} ; fi
 }
 
-function download_github () {
+function download_github() {
     izbase=${1}
     ihttp=${2}
     # download
     if [[ ${dodownload} -eq 1 ]] ; then curl -L -o ${izbase} ${ihttp} ; fi
 }
 
-function unpack () {
+function unpack() {
     izbase=${1}
     ibase=${2}
     # extract
@@ -412,7 +411,7 @@ function unpack () {
     esac
 }
 
-function download_unpack () {
+function download_unpack() {
     ibase=${1}
     izbase=${2}
     ihttp=${3}
@@ -422,7 +421,7 @@ function download_unpack () {
     unpack ${izbase} ${ibase}
 }
 
-function download_github_unpack () {
+function download_github_unpack() {
     ibase=${1}
     izbase=${2}
     ihttp=${3}
@@ -432,7 +431,7 @@ function download_github_unpack () {
     unpack ${izbase} ${ibase}
 }
 
-function configure_make () {
+function configure_make() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -449,7 +448,7 @@ function configure_make () {
     make -j ${ncpu}
 }
 
-function configure_make_nocpp () {
+function configure_make_nocpp() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -466,7 +465,7 @@ function configure_make_nocpp () {
     make -j ${ncpu}
 }
 
-function cmake_make () {
+function cmake_make() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -486,7 +485,7 @@ function cmake_make () {
     make -j ${ncpu}
 }
 
-function check () {
+function check() {
     # check
     case ${docheck} in
         1) make -j ${ncpu} check ;;
@@ -495,8 +494,8 @@ function check () {
     esac
 }
 
-function check_test () {
-    # check 
+function check_test() {
+    # check
     case ${docheck} in
         1) make -j ${ncpu} test ;;
         2) set +e ; make -j ${ncpu} test ; set -e ;;
@@ -504,7 +503,7 @@ function check_test () {
     esac
 }
 
-function configure_make_check () {
+function configure_make_check() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -514,7 +513,7 @@ function configure_make_check () {
     check
 }
 
-function cmake_make_check () {
+function cmake_make_check() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -524,7 +523,7 @@ function cmake_make_check () {
     check
 }
 
-function configure_make_test () {
+function configure_make_test() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -534,7 +533,7 @@ function configure_make_test () {
     check_test
 }
 
-function cmake_make_test () {
+function cmake_make_test() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -544,7 +543,7 @@ function cmake_make_test () {
     check_test
 }
 
-function install () {
+function install() {
     mconf=${1}
     # install
     if [[ ${dosudo} -eq 1 ]] ; then
@@ -555,7 +554,7 @@ function install () {
     fi
 }
 
-function configure_make_check_install () {
+function configure_make_check_install() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -567,7 +566,7 @@ function configure_make_check_install () {
     install
 }
 
-function configure_make_nocpp_check_install () {
+function configure_make_nocpp_check_install() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -579,7 +578,7 @@ function configure_make_nocpp_check_install () {
     install
 }
 
-function cmake_make_check_install () {
+function cmake_make_check_install() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -591,7 +590,7 @@ function cmake_make_check_install () {
     install
 }
 
-function cmake_make_test_install () {
+function cmake_make_test_install() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -603,7 +602,7 @@ function cmake_make_test_install () {
     install
 }
 
-function apply_netcdf_fortran_nag_patch () {
+function apply_netcdf_fortran_nag_patch() {
     #
     printf "Patch ${base}/m4/libtool.m4\n"
     # patch ${base}/m4/libtool.m4 patchit.${pid}
@@ -651,7 +650,7 @@ end subroutine dummy\
     if [[ -f patchit.${pid} ]] ; then rm patchit.${pid} ; fi
 }
 
-function configure_make_check_install_netcdf_fortran_nag () {
+function configure_make_check_install_netcdf_fortran_nag() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -678,7 +677,7 @@ function configure_make_check_install_netcdf_fortran_nag () {
     install
 }
 
-function configure_make_nocpp_check_install_netcdf_fortran_nag () {
+function configure_make_nocpp_check_install_netcdf_fortran_nag() {
     ibase=${1}
     bconf=${2}
     aconf=${3}
@@ -705,7 +704,7 @@ function configure_make_nocpp_check_install_netcdf_fortran_nag () {
     install
 }
 
-function cleanup () {
+function cleanup() {
     ibase=${1}
     izbase=${2}
     # clean up
@@ -718,7 +717,7 @@ function cleanup () {
     fi
 }
 
-function download_configure_make_check_install () {
+function download_configure_make_check_install() {
     ibase=${1}
     izbase=${2}
     ihttp=${3}
@@ -730,7 +729,7 @@ function download_configure_make_check_install () {
     cleanup ${ibase} ${izbase}
 }
 
-function download_cmake_make_check_install () {
+function download_cmake_make_check_install() {
     ibase=${1}
     izbase=${2}
     ihttp=${3}
@@ -742,7 +741,7 @@ function download_cmake_make_check_install () {
     cleanup ${ibase} ${izbase}
 }
 
-function download_cmake_make_test_install () {
+function download_cmake_make_test_install() {
     ibase=${1}
     izbase=${2}
     ihttp=${3}
@@ -919,7 +918,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 ;;
             *ifort*)
                 if [[ "${sys}" == "darwin" ]] ; then
-                    configure_make_nocpp_check_install ${base} "FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise -m64'" " "
+                    configure_make_nocpp_check_install ${base} "FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise'" " "
                 else
                     configure_make_check_install ${base} "FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'" " "
                 fi
@@ -945,8 +944,8 @@ if [[ ${donetcdf3} -eq 1 ]] ; then
     zbase=${base}.tar.gz
     http=http://www.unidata.ucar.edu/downloads/netcdf/ftp
     download_unpack ${base} ${zbase} ${http}
-    # patch test_write.F
-    sed -i -e 's/IF (err .ne. NF_EINVAL)/IF (err .ne. 0)/' ${base}/nf_test/test_write.F
+    # # patch test_write.F
+    # sed -i -e 's/IF (err .ne. NF_EINVAL)/IF (err .ne. 0)/' ${base}/nf_test/test_write.F
     # configure / make / check / install for all fortran compilers
     for f_comp in ${fortran_compilers} ; do
         printf "Build ${base}-$(basename ${f_comp})\n"
@@ -1183,12 +1182,12 @@ if [[ ${doantlr} -eq 1 ]] ; then
     http=http://www.antlr2.org/download
     # download and unpack
     download_unpack ${base} ${zbase} ${http}
-    if [[ "${sys}" != "darwin" ]] ; then
+    # if [[ "${sys}" != "darwin" ]] ; then
         sed -i '19 a #include <stdio.h>' ${base}/lib/cpp/antlr/CharInputBuffer.hpp
         sed -i '19 a #include <stdlib.h>' ${base}/lib/cpp/antlr/CharInputBuffer.hpp
         sed -i '26 a #include <stdio.h>' ${base}/lib/cpp/antlr/CharScanner.hpp
         sed -i '27 a #include <strings.h>' ${base}/lib/cpp/antlr/CharScanner.hpp
-    fi
+    # fi
     configure_make ${base}
     # if [[ "${sys}" != "darwin" ]] ; then
     #   sed -i '9 a #include <stdlib.h>' ${base}/examples/cpp/transform/CalcTreeWalker.cpp
@@ -1213,7 +1212,7 @@ if [[ ${donco} -eq 1 ]] ; then
     base=nco-${nco}
     zbase=${base}.tar.gz
     http=https://github.com/nco/nco/archive/${nco}.tar.gz
-    download_github_unpack ${base} ${zbase} ${http}    
+    download_github_unpack ${base} ${zbase} ${http}
     # change some unknown LaTeX
     sed -e '/textdegree/d' ${base}/doc/nco.texi > tmp.${pid}
     mv tmp.${pid} ${base}/doc/nco.texi
@@ -1236,27 +1235,31 @@ if [[ ${doopenmpi} -eq 1 ]] ; then
         iprefix=${prefix}/${base}-$(basename ${f_comp})
         case ${f_comp} in
             *pgfortran*) # first pgfortran then gfortran in case
-                aconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
+                bconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
+		aconf="--with-hwloc=internal --with-libevent=internal"
                 ;;
             *gfortran*) # first pgfortran then gfortran in case
-                aconf="FC=${f_comp}"
+                bconf="FC=${f_comp}"
+		aconf="--with-hwloc=internal --with-libevent=internal"
                 ;;
             *nag*)
-                aconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full'"
+                bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full'"
+		aconf="--with-hwloc=internal --with-libevent=internal"
                 ;;
             *ifort*)
                 if [[ "${sys}" == "darwin" ]] ; then
-                    aconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise -m64'"
+                    bconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise -m64'"
                 else
-                    aconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'"
+                    bconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'"
                 fi
+		aconf="--with-hwloc=internal --with-libevent=internal --enable-mpi-fortran=usempi"
                 ;;
             *)
                 printf "${pprog}: Fortran compiler not known: ${f_comp}.\n\n"
                 continue
                 ;;
         esac
-        configure_make_check_install ${base} "${aconf}" " "
+        configure_make_check_install ${base} "${bconf}" "${aconf}"
         iprefix=${prefix}
         # clean for next fortran compiler
         make clean
@@ -1278,19 +1281,19 @@ if [[ ${dompich} -eq 1 ]] ; then
         iprefix=${prefix}/${base}-$(basename ${f_comp})
         case ${f_comp} in
             *pgfortran*) # first pgfortran then gfortran in case
-                aconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
+                bconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
                 ;;
             *gfortran*) # first pgfortran then gfortran in case
-                aconf="FC=${f_comp}"
+                bconf="FC=${f_comp}"
                 ;;
             *nag*)
-                aconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full'"
+                bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full'"
                 ;;
             *ifort*)
                 if [[ "${sys}" == "darwin" ]] ; then
-                    aconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise -m64'"
+                    bconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise -m64'"
                 else
-                    aconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'"
+                    bconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'"
                 fi
                 ;;
             *)
@@ -1298,7 +1301,7 @@ if [[ ${dompich} -eq 1 ]] ; then
                 continue
                 ;;
         esac
-        configure_make_check_install ${base} "${aconf}" " "
+        configure_make_check_install ${base} "${bconf}" " "
         iprefix=${prefix}
         # clean for next fortran compiler
         make clean
@@ -1339,7 +1342,7 @@ if [[ ${dogdal} -eq 1 ]] ; then
     zbase=${base}.tar.gz
     http=https://download.osgeo.org/gdal/${gdal}
     download_unpack ${base} ${zbase} ${http}
-    configure_make ${base}
+    configure_make ${base} " " "--without-pg"
     # there is no make check or make test
     install
     cd ..
@@ -1396,7 +1399,7 @@ if [[ ${dohdf4} -eq 1 ]] ; then
     printf 'build hdf4\n'
     base=hdf-${hdf4}
     zbase=${base}.tar.gz
-    http=http://www.hdfgroup.org/ftp/HDF/HDF_Current/src
+    http=https://support.hdfgroup.org/ftp/HDF/releases/HDF${hdf4}/src
     # Problems reading netcdf with HDF4 - we do not need it though
     iprefix=${prefix}/${base}
     if [[ "${sys}" == "darwin" && ${ver} > 13.9.9 ]] ; then
