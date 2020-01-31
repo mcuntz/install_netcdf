@@ -261,6 +261,7 @@ doantlr=0
 donco=0
   nco=4.9.0
 doopenmpi=0
+  #openmpi=3.1.5
   openmpi=4.0.2          # Does not work with pgfortran yet, make install fails; do manually,
                          # where 20 in libmpi_usempif08.20.dylib stands for openmpi=2.0.x
                          #   cd openmpi-* ; cd ompi/mpi/fortran/use-mpi-f08/.libs/
@@ -1287,7 +1288,7 @@ if [[ ${dompich} -eq 1 ]] ; then
                 bconf="FC=${f_comp}"
                 ;;
             *nag*)
-                bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full'"
+                bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full' F77=${f_comp} FFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full'"
                 ;;
             *ifort*)
                 if [[ "${sys}" == "darwin" ]] ; then
