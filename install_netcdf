@@ -620,19 +620,19 @@ function apply_netcdf_fortran_nag_patch() {
     sed -n -e "/nagbegin.netcdf${netcdf4_fortran}.patch/,/nagend.netcdf${netcdf4_fortran}.patch/p" \
         ${dprog}/${pprog} > patchit.${pid}
     case ${netcdf4_fortran} in # normal: diff old new > patch
-        4\.2) # was done: diff new old > patch
+        4.2) # was done: diff new old > patch
             patch -R ${base}/m4/libtool.m4 patchit.${pid}
             ;;
-        4\.4\.1) # was done: diff new old > patch
+        4.4.1) # was done: diff new old > patch
             patch -R ${base}/m4/libtool.m4 patchit.${pid}
             ;;
-        4\.4\.2) # patch directly libtool
+        4.4.2) # patch directly libtool
             patch ${base}/libtool patchit.${pid}
             ;;
-        4\.4\.3) # do not patch libtool but change F77 test file
+        4.4.3) # do not patch libtool but change F77 test file
             sed -i -e 's/call EXIT/stop/' ${base}/nf_test/nf_test.F
             ;;
-        4\.4\.4) # do not patch libtool but change F77 test files
+        4.4.4) # do not patch libtool but change F77 test files
             sed -i -e 's/call EXIT/stop/'  ${base}/nf_test/nf_test.F
             sed -i -e 's/&[[:blank:]]*$//' ${base}/nf_test/ftst_path.F
             sed -i -e 's/&[[:blank:]]*$//' ${base}/nf_test/ftst_rengrps.F
@@ -646,7 +646,7 @@ subroutine dummy\
 end subroutine dummy\
 ' ${base}/fortran/nf_logging.F90
             ;;
-        4\.4\.5) # NAG does not allow compiling empty source files
+        4.4.5) # NAG does not allow compiling empty source files
             sed -i -e 's/include/ include/' ${base}/nf_test/ftst_rengrps.F
             sed -i -e '/#endif/i\
 #else\
@@ -654,7 +654,7 @@ subroutine dummy\
 end subroutine dummy\
 ' ${base}/fortran/nf_logging.F90
             ;;
-        4\.5\.2) # patch configure script
+        4.5.2) # patch configure script
             patch ${base}/configure patchit.${pid}
             ;;
         *)
@@ -835,7 +835,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
     zbase=${base}.tar.gz
     http=https://codeload.github.com/Unidata/netcdf-fortran/tar.gz/v${netcdf4_fortran}
     download_github_unpack ${base} ${zbase} ${http}
-    if [[ "${netcdf4_fortran}" == '4\.4\.5' ]] ; then
+    if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then
         sed -i -e 's/include/ include/' ${base}/nf_test/ftst_rengrps.F
     fi
     # configure / make / check / install for all fortran compilers
@@ -871,7 +871,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
                 ;;
             *nag*)
-                if [[ "${netcdf4_fortran}" == '4\.4\.5' ]] ; then # Take configure script of 4.4.4
+                if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then # Take configure script of 4.4.4
                         netcdf4_fortran1=4.4.4
                         base1=netcdf-fortran-${netcdf4_fortran1}
                         zbase1=${base1}.tar.gz
@@ -884,7 +884,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 fi
                 # apply patch to original files
                 case ${netcdf4_fortran} in
-                    4\.2 | 4\.4\.1 | 4\.5\.2)
+                    4.2 | 4.4.1 | 4.5.2)
                         apply_netcdf_fortran_nag_patch
                         ;;
                     *)
@@ -897,7 +897,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 fi
                 # apply patch to files from configure such as libtool or test files
                 case ${netcdf4_fortran} in # normal: diff old new > patch
-                    4\.4\.2 | 4\.4\.3 | 4\.4\.4 | 4\.4\.5)
+                    4.4.2 | 4.4.3 | 4.4.4 | 4.4.5)
                         cd ..
                         apply_netcdf_fortran_nag_patch
                         cd ${base}
