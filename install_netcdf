@@ -615,24 +615,24 @@ function cmake_make_test_install() {
 
 function apply_netcdf_fortran_nag_patch() {
     #
-    printf "Patch ${base}/m4/libtool.m4\n"
+    printf "Patch NetCDF ${netcdf4_fortran}\n"
     # patch ${base}/m4/libtool.m4 patchit.${pid}
     sed -n -e "/nagbegin.netcdf${netcdf4_fortran}.patch/,/nagend.netcdf${netcdf4_fortran}.patch/p" \
         ${dprog}/${pprog} > patchit.${pid}
     case ${netcdf4_fortran} in # normal: diff old new > patch
-        4.2) # was done: diff new old > patch
+        4\.2) # was done: diff new old > patch
             patch -R ${base}/m4/libtool.m4 patchit.${pid}
             ;;
-        4.4.1) # was done: diff new old > patch
+        4\.4\.1) # was done: diff new old > patch
             patch -R ${base}/m4/libtool.m4 patchit.${pid}
             ;;
-        4.4.2) # patch directly libtool
+        4\.4\.2) # patch directly libtool
             patch ${base}/libtool patchit.${pid}
             ;;
-        4.4.3) # do not patch libtool but change F77 test file
+        4\.4\.3) # do not patch libtool but change F77 test file
             sed -i -e 's/call EXIT/stop/' ${base}/nf_test/nf_test.F
             ;;
-        4.4.4) # do not patch libtool but change F77 test files
+        4\.4\.4) # do not patch libtool but change F77 test files
             sed -i -e 's/call EXIT/stop/'  ${base}/nf_test/nf_test.F
             sed -i -e 's/&[[:blank:]]*$//' ${base}/nf_test/ftst_path.F
             sed -i -e 's/&[[:blank:]]*$//' ${base}/nf_test/ftst_rengrps.F
@@ -646,7 +646,7 @@ subroutine dummy\
 end subroutine dummy\
 ' ${base}/fortran/nf_logging.F90
             ;;
-        4.4.5) # NAG does not allow compiling empty source files
+        4\.4\.5) # NAG does not allow compiling empty source files
             sed -i -e 's/include/ include/' ${base}/nf_test/ftst_rengrps.F
             sed -i -e '/#endif/i\
 #else\
@@ -654,65 +654,14 @@ subroutine dummy\
 end subroutine dummy\
 ' ${base}/fortran/nf_logging.F90
             ;;
+        4\.5\.2) # patch configure script
+            patch ${base}/configure patchit.${pid}
+            ;;
         *)
             true
             ;;
     esac
     if [[ -f patchit.${pid} ]] ; then rm patchit.${pid} ; fi
-}
-
-function configure_make_check_install_netcdf_fortran_nag() {
-    ibase=${1}
-    bconf=${2}
-    aconf=${3}
-    # cd
-    cd ${ibase}
-    # configure
-    echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
-        CPPFLAGS=\"-I${prefix}/include ${EXTRA_CPPFLAGS}\" \
-        ./configure --prefix=${iprefix} ${aconf}
-    eval "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
-        CPPFLAGS=\"-I${prefix}/include ${EXTRA_CPPFLAGS}\" \
-        ./configure --prefix=${iprefix} ${aconf}
-    # apply patch
-    if [[ "${netcdf4_fortran}" > "4.1" ]] ; then
-        cd ..
-        apply_netcdf_fortran_nag_patch
-        cd ${ibase}
-    fi
-    # make
-    make -j ${ncpu}
-    # check # make check for netcdf-nagfor fails with -j
-    make check
-    # install
-    install
-}
-
-function configure_make_nocpp_check_install_netcdf_fortran_nag() {
-    ibase=${1}
-    bconf=${2}
-    aconf=${3}
-    # cd
-    cd ${ibase}
-    # configure
-    echo "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
-        CPPFLAGS=\"${EXTRA_CPPFLAGS}\" \
-        ./configure --prefix=${iprefix} ${aconf}
-    eval "${bconf}" LDFLAGS=\"-L${prefix}/lib ${EXTRA_LDFLAGS}\" \
-        CPPFLAGS=\"${EXTRA_CPPFLAGS}\" \
-        ./configure --prefix=${iprefix} ${aconf}
-    # apply patch
-    if [[ "${netcdf4_fortran}" > "4.1" ]] ; then
-        cd ..
-        apply_netcdf_fortran_nag_patch
-        cd ${ibase}
-    fi
-    # make
-    make -j ${ncpu}
-    # check # make check for netcdf-nagfor fails with -j
-    make check
-    # install
-    install
 }
 
 function cleanup() {
@@ -843,9 +792,9 @@ if [[ ${dohdf5} -eq 1 ]] ; then
     zbase=${base}.tar.gz
     if [[ "${hdf5}" > "1.10.0" ]] ; then
         # http=https://www.hdfgroup.org/package/source-gzip/?wpdmdl=${hdf5code}
-	http=https://support.hdfgroup.org/ftp/HDF5/releases/${base%.*}/${base}/src/${zbase}
+        http=https://support.hdfgroup.org/ftp/HDF5/releases/${base%.*}/${base}/src/${zbase}
         download_github_unpack ${base} ${zbase} ${http}
-	# iprefix=${prefix}/hdf5-${hdf5}
+        # iprefix=${prefix}/hdf5-${hdf5}
         cmake_make ${base} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH}"
         if [[ ${hdf5check} -eq 1 ]] ; then
             check_test
@@ -853,7 +802,7 @@ if [[ ${dohdf5} -eq 1 ]] ; then
         install
         cd ../..
         cleanup ${base} ${zbase}
-	# iprefix=${prefix}
+        # iprefix=${prefix}
     else
         http=http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${hdf5%.*}/hdf5-${hdf5}/src
         download_configure_make_check_install ${base} ${zbase} ${http} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH}"
@@ -886,7 +835,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
     zbase=${base}.tar.gz
     http=https://codeload.github.com/Unidata/netcdf-fortran/tar.gz/v${netcdf4_fortran}
     download_github_unpack ${base} ${zbase} ${http}
-    if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then
+    if [[ "${netcdf4_fortran}" == '4\.4\.5' ]] ; then
         sed -i -e 's/include/ include/' ${base}/nf_test/ftst_rengrps.F
     fi
     # configure / make / check / install for all fortran compilers
@@ -901,10 +850,10 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 # pgiFortran does not work with f77_v2
                 sed -i -e 's/= tst_f77_v2/= #tst_f77_v2/' nf_test/Makefile
                 sed -i -e 's/= tst03_f77_v2/= #tst03_f77_v2/' nf03_test/Makefile
-		# using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
-		if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
-		    sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
-		fi
+                # using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
+                if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
+                    sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
+                fi
                 check
                 install
                 EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
@@ -913,46 +862,60 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
             *gfortran*) # first pgfortran then gfortran in case
                 EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -DgFortran"
                 configure_make ${base} "FC=${f_comp}"
-		# using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
-		if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
-		    sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
-		fi
+                # using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
+                if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
+                    sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
+                fi
                 check
                 install
                 EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
                 ;;
             *nag*)
-		if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then # Take configure script of 4.4.4
-    		    netcdf4_fortran1=4.4.4
-    		    base1=netcdf-fortran-${netcdf4_fortran1}
-    		    zbase1=${base1}.tar.gz
-    		    http1=https://codeload.github.com/Unidata/netcdf-fortran/tar.gz/v${netcdf4_fortran1}
-    		    download_github_unpack ${base1} ${zbase1} ${http1}
-    		    mv ${base}/configure ${base}/configure.save
-    		    sed -e "/macro_version='2.4.2'/s/=.*/='2.4.6'/" -e "/macro_revision='1.3337'/s/=.*/='2.4.6'/" ${base1}/configure > ${base}/configure
-    		    chmod +x ${base}/configure
-    		    cleanup ${base1} ${zbase1}
-		fi
-                configure_make_nocpp ${base} "FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full' FFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full'" " "
-		if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then
-    		    mv configure.save configure
-		fi
-		# apply patch
-		if [[ "${netcdf4_fortran}" > "4.1" ]] ; then
-		    cd ..
-		    apply_netcdf_fortran_nag_patch
-		    cd ${base}
-		fi
-		# using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
-		if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
-		    sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
-		fi
-		# make
-		make -j ${ncpu}
-		# check # make check for netcdf-nagfor fails with -j
-		make check
-		# install
-		install
+                if [[ "${netcdf4_fortran}" == '4\.4\.5' ]] ; then # Take configure script of 4.4.4
+                        netcdf4_fortran1=4.4.4
+                        base1=netcdf-fortran-${netcdf4_fortran1}
+                        zbase1=${base1}.tar.gz
+                        http1=https://codeload.github.com/Unidata/netcdf-fortran/tar.gz/v${netcdf4_fortran1}
+                        download_github_unpack ${base1} ${zbase1} ${http1}
+                        mv ${base}/configure ${base}/configure.save
+                        sed -e "/macro_version='2.4.2'/s/=.*/='2.4.6'/" -e "/macro_revision='1.3337'/s/=.*/='2.4.6'/" ${base1}/configure > ${base}/configure
+                        chmod +x ${base}/configure
+                        cleanup ${base1} ${zbase1}
+                fi
+                # apply patch to original files
+                case ${netcdf4_fortran} in
+                    4\.2 | 4\.4\.1 | 4\.5\.2)
+                        apply_netcdf_fortran_nag_patch
+                        ;;
+                    *)
+                        true
+                        ;;
+                esac
+                configure_nocpp ${base} "FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full' FFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full'" " "
+                if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then # put back configuration script of 4.4.5
+                    mv configure.save configure
+                fi
+                # apply patch to files from configure such as libtool or test files
+                case ${netcdf4_fortran} in # normal: diff old new > patch
+                    4\.4\.2 | 4\.4\.3 | 4\.4\.4 | 4\.4\.5)
+                        cd ..
+                        apply_netcdf_fortran_nag_patch
+                        cd ${base}
+                        ;;
+                    *)
+                        true
+                        ;;
+                esac
+                # using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
+                if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
+                    sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
+                fi
+                # make
+                make -j ${ncpu}
+                # check # make check for netcdf-nagfor fails with -j
+                make check
+                # install
+                install
                 ;;
             *ifort*)
                 if [[ "${sys}" == "darwin" ]] ; then
@@ -960,10 +923,10 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 else
                     configure_make_check ${base} "FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'" " "
                 fi
-		# using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
-		if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
-		    sed -i -e 's/-DENABLE_CDF5=1//' ${base}/nf_test/Makefile
-		fi
+                # using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
+                if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
+                    sed -i -e 's/-DENABLE_CDF5=1//' ${base}/nf_test/Makefile
+                fi
                 check
                 install
                 ;;
@@ -1280,15 +1243,15 @@ if [[ ${doopenmpi} -eq 1 ]] ; then
         case ${f_comp} in
             *pgfortran*) # first pgfortran then gfortran in case
                 bconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
-		aconf="--with-hwloc=internal --with-libevent=internal"
+        aconf="--with-hwloc=internal --with-libevent=internal"
                 ;;
             *gfortran*) # first pgfortran then gfortran in case
                 bconf="FC=${f_comp}"
-		aconf="--with-hwloc=internal --with-libevent=internal"
+                aconf="--with-hwloc=internal --with-libevent=internal"
                 ;;
             *nag*)
                 bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full'"
-		aconf="--with-hwloc=internal --with-libevent=internal"
+                aconf="--with-hwloc=internal --with-libevent=internal"
                 ;;
             *ifort*)
                 if [[ "${sys}" == "darwin" ]] ; then
@@ -1296,7 +1259,7 @@ if [[ ${doopenmpi} -eq 1 ]] ; then
                 else
                     bconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'"
                 fi
-		aconf="--with-hwloc=internal --with-libevent=internal --enable-mpi-fortran=usempi"
+        aconf="--with-hwloc=internal --with-libevent=internal --enable-mpi-fortran=usempi"
                 ;;
             *)
                 printf "${pprog}: Fortran compiler not known: ${f_comp}.\n\n"
@@ -1565,3 +1528,33 @@ exit 0
 > archive_cmds="\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\$rpath/\$soname \$verstring \$single_module"
 > archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\$rpath/\$soname \$verstring \$single_module \$wl-exported_symbols_list,\$output_objdir/\$libname-symbols.expsym"
 # nagend.netcdf4.4.2.patch
+
+
+# --------------------------------------------------------------------
+# netcdf4.5.2 patch for nagfor
+# nagbegin.netcdf4.5.2.patch
+12666c12666
+<     archive_cmds="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+---
+>     archive_cmds="\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+12668c12668
+<     archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+---
+>     archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+16512c16512
+<     archive_cmds_F77="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+---
+>     archive_cmds_F77="\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+16514c16514
+<     archive_expsym_cmds_F77="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+---
+>     archive_expsym_cmds_F77="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+19643c19643
+<     archive_cmds_FC="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+---
+>     archive_cmds_FC="\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+19645c19645
+<     archive_expsym_cmds_FC="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+---
+>     archive_expsym_cmds_FC="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+# nagend.netcdf4.5.2.patch
