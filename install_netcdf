@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Install open source packages to work with netCDF and openMPI on Mac OS X and Linux.
 #
@@ -83,7 +83,7 @@
 #     brew link <PACKAGE>
 #   This normally shows a directory which cannot be written. Set owner to username, e.g.
 #     sudo chown ${USER} /usr/local/share/man/man3
-#   Then, do not select the instaled packages below
+#   Then, do not select the installed packages below
 #     dozlib=0
 #     doszip=0
 #     dohdf5=0
@@ -225,9 +225,9 @@ dohdf5=0                 # make check works but might fail on Mac because of dyl
                          # 1.10.1: 4301; 1.10.5: 13571
   hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
 donetcdf4=0              # make check might stop, just make check and sudo make install manually
-  netcdf4=4.7.3          #
+  netcdf4=4.7.4          #
 donetcdf4_fortran=0      # make check might stop, just make check and sudo make install manually
-  netcdf4_fortran=4.5.2
+  netcdf4_fortran=4.5.3
 donetcdf3=0              # pgfortran might stop, just make, make check, sudo make install manually
   netcdf3=3.6.3
 doudunits=0
@@ -263,7 +263,7 @@ donco=0
   nco=4.9.2
 doopenmpi=0
   #openmpi=3.1.5
-  openmpi=4.0.2          # Does not work with pgfortran yet, make install fails; do manually,
+  openmpi=4.0.4          # Does not work with pgfortran yet, make install fails; do manually,
                          # where 20 in libmpi_usempif08.20.dylib stands for openmpi=2.0.x
                          #   cd openmpi-* ; cd ompi/mpi/fortran/use-mpi-f08/.libs/
                          #   ln -sf ../libmpi_usempif08.la libmpi_usempif08.20.dylib
@@ -850,22 +850,47 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 # pgiFortran does not work with f77_v2
                 sed -i -e 's/= tst_f77_v2/= #tst_f77_v2/' nf_test/Makefile
                 sed -i -e 's/= tst03_f77_v2/= #tst03_f77_v2/' nf03_test/Makefile
-                # using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
-                if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
-                    sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
-                fi
+                # using hdf5 from homebrew has ENABLE-CDF5 set
+                # netcd4-fortran sets USE_NETCDF4
+                # this is contradictory in Fortran77 tests
+                case ${netcdf4_fortran} in
+                    4.5.2 | 4.5.3)
+                        sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
+                        ;;
+                    *)
+                        true
+                        ;;
+                esac
                 check
                 install
                 EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
                 EXTRA_LDFLAGS="${EXTRA_LDFLAGS% ?*}"
                 ;;
             *gfortran*) # first pgfortran then gfortran in case
+                # gfortran checks argument mismatch in routine calls now like nagfor.
+                # One has to set -fallow-argument-mismatch similar to -mismatch of nagfor.
+                # configure does this only for FCFLAGS not for FFLAGS so that the Fortran77 tests fail.
+                case ${netcdf4_fortran} in
+                    4.5.3)
+                        printf '6958a6959\n>    FFLAGS="${FFLAGS} -fallow-argument-mismatch"\n' | patch ${base}/configure
+                        ;;
+                    *)
+                        true
+                        ;;
+                esac
                 EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -DgFortran"
                 configure_make ${base} "FC=${f_comp}"
-                # using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
-                if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
-                    sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
-                fi
+                # using hdf5 from homebrew has ENABLE-CDF5 set
+                # netcd4-fortran sets USE_NETCDF4
+                # this is contradictory in Fortran77 tests
+                case ${netcdf4_fortran} in
+                    4.5.2 | 4.5.3)
+                        sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
+                        ;;
+                    *)
+                        true
+                        ;;
+                esac
                 check
                 install
                 EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
@@ -906,10 +931,17 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                         true
                         ;;
                 esac
-                # using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
-                if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
-                    sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
-                fi
+                # using hdf5 from homebrew has ENABLE-CDF5 set
+                # netcd4-fortran sets USE_NETCDF4
+                # this is contradictory in Fortran77 tests
+                case ${netcdf4_fortran} in
+                    4.5.2 | 4.5.3)
+                        sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
+                        ;;
+                    *)
+                        true
+                        ;;
+                esac
                 # make
                 make -j ${ncpu}
                 # check # make check for netcdf-nagfor fails with -j
@@ -923,10 +955,17 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 else
                     configure_make_check ${base} "FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'" " "
                 fi
-                # using hdf5 from homebrew has ENABLE-CDF5 set; netcd4-fortran sets USE_NETCDF4; this is contradictory in Fortran77 tests
-                if [[ "${netcdf4_fortran}" == '4.5.2' ]] ; then
-                    sed -i -e 's/-DENABLE_CDF5=1//' ${base}/nf_test/Makefile
-                fi
+                # using hdf5 from homebrew has ENABLE-CDF5 set
+                # netcd4-fortran sets USE_NETCDF4
+                # this is contradictory in Fortran77 tests
+                case ${netcdf4_fortran} in
+                    4.5.2 | 4.5.3)
+                        sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
+                        ;;
+                    *)
+                        true
+                        ;;
+                esac
                 check
                 install
                 ;;
