@@ -263,7 +263,7 @@ donco=0
   nco=4.9.2
 doopenmpi=0
   #openmpi=3.1.5
-  openmpi=4.0.4          # Does not work with pgfortran yet, make install fails; do manually,
+  openmpi=4.0.5          # Does not work with pgfortran yet, make install fails; do manually,
                          # where 20 in libmpi_usempif08.20.dylib stands for openmpi=2.0.x
                          #   cd openmpi-* ; cd ompi/mpi/fortran/use-mpi-f08/.libs/
                          #   ln -sf ../libmpi_usempif08.la libmpi_usempif08.20.dylib
@@ -654,7 +654,7 @@ subroutine dummy\
 end subroutine dummy\
 ' ${base}/fortran/nf_logging.F90
             ;;
-        4.5.2) # patch configure script
+        4.5.2 | 4.5.3) # patch configure script
             patch ${base}/configure patchit.${pid}
             ;;
         *)
@@ -909,7 +909,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 fi
                 # apply patch to original files
                 case ${netcdf4_fortran} in
-                    4.2 | 4.4.1 | 4.5.2)
+                    4.2 | 4.4.1 | 4.5.2 | 4.5.3)
                         apply_netcdf_fortran_nag_patch
                         ;;
                     *)
@@ -1597,3 +1597,33 @@ exit 0
 ---
 >     archive_expsym_cmds_FC="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
 # nagend.netcdf4.5.2.patch
+
+
+# --------------------------------------------------------------------
+# netcdf4.5.3 patch for nagfor
+# nagbegin.netcdf4.5.3.patch
+12765c12765
+<     archive_cmds="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+---
+>     archive_cmds="\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+12767c12767
+<     archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+---
+>     archive_expsym_cmds="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+16589c16589
+<     archive_cmds_F77="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+---
+>     archive_cmds_F77="\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+16591c16591
+<     archive_expsym_cmds_F77="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+---
+>     archive_expsym_cmds_F77="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+19698c19698
+<     archive_cmds_FC="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+---
+>     archive_cmds_FC="\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dsymutil"
+19700c19700
+<     archive_expsym_cmds_FC="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+---
+>     archive_expsym_cmds_FC="sed 's|^|_|' < \$export_symbols > \$output_objdir/\$libname-symbols.expsym~\$CC \${wl}-dylib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags \${wl}-install_name \${wl}\${rpath# *}/\$soname \$verstring $_lt_dar_single_mod$_lt_dar_export_syms$_lt_dsymutil"
+# nagend.netcdf4.5.3.patch
