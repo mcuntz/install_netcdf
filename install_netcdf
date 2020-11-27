@@ -835,149 +835,80 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
     zbase=${base}.tar.gz
     http=https://codeload.github.com/Unidata/netcdf-fortran/tar.gz/v${netcdf4_fortran}
     download_github_unpack ${base} ${zbase} ${http}
-    if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then
-        sed -i -e 's/include/ include/' ${base}/nf_test/ftst_rengrps.F
-    fi
     # configure / make / check / install for all fortran compilers
     for f_comp in ${fortran_compilers} ; do
-        printf "Build ${base}-$(basename ${f_comp})\n"
-        iprefix=${prefix}/${base}-$(basename ${f_comp})
         case ${f_comp} in
             *pgfortran*) # first pgfortran then gfortran in case
-                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -DpgiFortran"
-                EXTRA_LDLFAGS="${EXTRA_LDFLAGS} -L${pgipath}/lib"
-                configure_make_nocpp ${base} "FC=${f_comp} FCLAGS='-O -tp=p7-64' F77=${f_comp} FFLAGS='-O -tp=p7-64' LIBS='-lnetcdf -lhdf5 -lhdf5_hl'"
-                # pgiFortran does not work with f77_v2
-                sed -i -e 's/= tst_f77_v2/= #tst_f77_v2/' nf_test/Makefile
-                sed -i -e 's/= tst03_f77_v2/= #tst03_f77_v2/' nf03_test/Makefile
-                # using hdf5 from homebrew has ENABLE-CDF5 set
-                # netcd4-fortran sets USE_NETCDF4
-                # this is contradictory in Fortran77 tests
-                case ${netcdf4_fortran} in
-                    4.5.2 | 4.5.3)
-                        sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
-                        ;;
-                    *)
-                        true
-                        ;;
-                esac
-                check
-                install
-                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
-                EXTRA_LDFLAGS="${EXTRA_LDFLAGS% ?*}"
-                ;;
-            *gfortran*) # first pgfortran then gfortran in case
-                # gfortran checks argument mismatch in routine calls now like nagfor.
-                # One has to set -fallow-argument-mismatch similar to -mismatch of nagfor.
-                # configure does this only for FCFLAGS not for FFLAGS so that the Fortran77 tests fail.
-                case ${netcdf4_fortran} in
-                    4.5.3)
-                        printf '6958a6959\n>    FFLAGS="${FFLAGS} -fallow-argument-mismatch"\n' | patch ${base}/configure
-                        ;;
-                    *)
-                        true
-                        ;;
-                esac
-                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -DgFortran"
-                configure_make ${base} "FC=${f_comp}"
-                # using hdf5 from homebrew has ENABLE-CDF5 set
-                # netcd4-fortran sets USE_NETCDF4
-                # this is contradictory in Fortran77 tests
-                case ${netcdf4_fortran} in
-                    4.5.2 | 4.5.3)
-                        sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
-                        ;;
-                    *)
-                        true
-                        ;;
-                esac
-                check
-                install
-                EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS% ?*}"
-                ;;
-            *nag*)
-                if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then # Take configure script of 4.4.4
-                        netcdf4_fortran1=4.4.4
-                        base1=netcdf-fortran-${netcdf4_fortran1}
-                        zbase1=${base1}.tar.gz
-                        http1=https://codeload.github.com/Unidata/netcdf-fortran/tar.gz/v${netcdf4_fortran1}
-                        download_github_unpack ${base1} ${zbase1} ${http1}
-                        mv ${base}/configure ${base}/configure.save
-                        sed -e "/macro_version='2.4.2'/s/=.*/='2.4.6'/" -e "/macro_revision='1.3337'/s/=.*/='2.4.6'/" ${base1}/configure > ${base}/configure
-                        chmod +x ${base}/configure
-                        cleanup ${base1} ${zbase1}
-                fi
-                # apply patch to original files
-                case ${netcdf4_fortran} in
-                    4.2 | 4.4.1 | 4.5.2 | 4.5.3)
-                        apply_netcdf_fortran_nag_patch
-                        ;;
-                    *)
-                        true
-                        ;;
-                esac
-                configure_nocpp ${base} "FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full' FFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full'" " "
-                if [[ "${netcdf4_fortran}" == '4.4.5' ]] ; then # put back configuration script of 4.4.5
-                    mv configure.save configure
-                fi
-                # apply patch to files from configure such as libtool or test files
-                case ${netcdf4_fortran} in # normal: diff old new > patch
-                    4.4.2 | 4.4.3 | 4.4.4 | 4.4.5)
-                        cd ..
-                        apply_netcdf_fortran_nag_patch
-                        cd ${base}
-                        ;;
-                    *)
-                        true
-                        ;;
-                esac
-                # using hdf5 from homebrew has ENABLE-CDF5 set
-                # netcd4-fortran sets USE_NETCDF4
-                # this is contradictory in Fortran77 tests
-                case ${netcdf4_fortran} in
-                    4.5.2 | 4.5.3)
-                        sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
-                        ;;
-                    *)
-                        true
-                        ;;
-                esac
-                # make
-                make -j ${ncpu}
-                # check # make check for netcdf-nagfor fails with -j
-                make check
-                # install
-                install
-                ;;
-            *ifort*)
-                if [[ "${sys}" == "darwin" ]] ; then
-                    configure_make_nocpp ${base} "FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -mdynamic-no-pic -assume byterecl -fp-model precise'" " "
-                else
-                    configure_make_check ${base} "FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'" " "
-                fi
-                # using hdf5 from homebrew has ENABLE-CDF5 set
-                # netcd4-fortran sets USE_NETCDF4
-                # this is contradictory in Fortran77 tests
-                case ${netcdf4_fortran} in
-                    4.5.2 | 4.5.3)
-                        sed -i -e 's/-DENABLE_CDF5=1//' nf_test/Makefile
-                        ;;
-                    *)
-                        true
-                        ;;
-                esac
-                check
-                install
-                ;;
-            *)
-                printf "${pprog}: Fortran compiler not known: ${f_comp}.\n\n"
-                iprefix=${prefix}
+                printf "${f_comp} not supported at the moment for netcdf-fortran after change to cmake.\n"
                 continue
                 ;;
+            *)
+                true
+                ;;
         esac
+        printf "Build ${base}-$(basename ${f_comp})\n"
+        iprefix=${prefix}/${base}-$(basename ${f_comp})
+        cd ${base}
+        mkdir build
+        cd build
+        case ${f_comp} in
+            *nag*)
+                # strange NCSHORT_T etc. in ftest.f, they are defined in confdefs.h in C-Library
+                sed -e '/ftest/d' ../nf_test/CMakeLists.txt > CMakeLists.tmp
+                mv CMakeLists.tmp ../nf_test/CMakeLists.txt
+                ;;
+            *)
+                true
+                ;;
+        esac
+        if [[ "${sys}" == "darwin" ]] ; then
+            nclib=${prefix}/lib/libnetcdf.dylib
+        else
+            nclib=${prefix}/lib/libnetcdf.so
+        fi
+        # dynamic
+        echo cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_INCLUDE_DIR=${prefix}/include
+        cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_INCLUDE_DIR=${prefix}/include
+        case ${f_comp} in
+            *nag*)
+                # nagfor cannot deal with .tbd files but needs dylib files
+                for i in $(find . -name link.txt -print) ; do
+                    sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
+                    mv link.tmp ${i}
+                done
+            ;;
+            *)
+                true
+                ;;
+        esac
+        make
+        check_test
+        install
+        # static - do not set compiler again
+        echo cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_INCLUDE_DIR=${prefix}/include
+        cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_INCLUDE_DIR=${prefix}/include
+        case ${f_comp} in
+            *nag*)
+                # nagfor cannot deal with .tbd files but needs dylib files
+                for i in $(find . -name link.txt -print) ; do
+                    sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
+                    mv link.tmp ${i}
+                done
+                ;;
+            *)
+                true
+                ;;
+        esac
+        make
+        check_test
+        install
+        cd ..
+        if [[ ${dosudo} -eq 1 ]] ; then
+            sudo rm -r build
+        else
+            rm -r build
+        fi
         iprefix=${prefix}
-        # clean for next fortran compiler
-        make clean
         cd ..
     done
     cleanup ${base} ${zbase}
