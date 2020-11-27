@@ -881,7 +881,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 true
                 ;;
         esac
-        make
+        make -j ${ncpu}
         check_test
         install
         # static - do not set compiler again
@@ -899,7 +899,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 true
                 ;;
         esac
-        make
+        make -j ${ncpu}
         check_test
         install
         cd ..
