@@ -861,14 +861,20 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 true
                 ;;
         esac
+        ncdir=${prefix}
         if [[ "${sys}" == "darwin" ]] ; then
-            nclib=${prefix}/lib/libnetcdf.dylib
+            nclib=${ncdir}/lib/libnetcdf.dylib
         else
-            nclib=${prefix}/lib/libnetcdf.so
+            nclib=${ncdir}/lib/libnetcdf.so
+        fi
+        if [[ ! -e ${nclib} ]] ; then
+            # if netcdf-c does not exist, try homebrew directory
+            ncdir=/usr/local/opt/netcdf
+            nclib=${ncdir}/lib/$(basename ${nclib})
         fi
         # dynamic
-        echo cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_INCLUDE_DIR=${prefix}/include
-        cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_INCLUDE_DIR=${prefix}/include
+        echo cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include
+        cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include
         case ${f_comp} in
             *nag*)
                 # nagfor cannot deal with .tbd files but needs dylib files
@@ -884,9 +890,20 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
         make -j ${ncpu}
         check_test
         install
+        if [[ "${sys}" == "darwin" ]] ; then
+            # set @rpath/lib explicitly in library because LR_RPATH is not working all the time
+            set +e
+            ilib=$(ls ${iprefix}/lib/libnetcdff.[0-9].dylib ${iprefix}/lib/libnetcdff.[0-9][0-9].dylib 2>/dev/null)
+            set -e
+            if [[ ${dosudo} -eq 1 ]] ; then
+                sudo install_name_tool -id ${ilib} ${ilib}
+            else
+                install_name_tool -id ${ilib} ${ilib}
+            fi
+        fi
         # static - do not set compiler again
-        echo cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_INCLUDE_DIR=${prefix}/include
-        cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_INCLUDE_DIR=${prefix}/include
+        echo cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include
+        cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include
         case ${f_comp} in
             *nag*)
                 # nagfor cannot deal with .tbd files but needs dylib files
