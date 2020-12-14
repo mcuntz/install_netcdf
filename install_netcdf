@@ -308,13 +308,21 @@ fortran_compilers="gfortran"
 # fortran_compilers="nagfor"
 # fortran_compilers="/opt/pgi/osx86-64/19.4/bin/pgfortran"
 # fortran_compilers="pgfortran"
+# Standard Intel
 # source /opt/intel/bin/compilervars.sh intel64
+# fortran_compilers="ifort"
+# Intel OneAPI
+# source /opt/intel/oneapi/setvars.sh
 # fortran_compilers="ifort"
 
 # Extra CPPFLAGS and LDFLAGS, for example for libs in non-default path such as /opt/lib
 if [[ "${sys}" == "darwin" ]] ; then
     EXTRA_CPPFLAGS=
-    EXTRA_LDFLAGS=
+    if [[ -n ${ONEAPI_ROOT} ]] ; then
+        EXTRA_LDFLAGS="-L${prefix}/lib"
+    else
+        EXTRA_LDFLAGS=
+    fi
     if [[ -d /usr/local/opt/hdf5\@1.8/include ]] ; then
         # using hdf5 v1.8.19 from homebrew
         EXTRA_CPPFLAGS="-I/usr/local/opt/hdf5@1.8/include"
@@ -846,8 +854,15 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 true
                 ;;
         esac
-        printf "Build ${base}-$(basename ${f_comp})\n"
-        iprefix=${prefix}/${base}-$(basename ${f_comp})
+        if [[ -n ${ONEAPI_ROOT} ]] ; then
+            printf "Build ${base}-oneapi\n"
+            iprefix=${prefix}/${base}-oneapi
+            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib
+            export CPATH=${CPATH}:/usr/local/include
+        else
+            printf "Build ${base}-$(basename ${f_comp})\n"
+            iprefix=${prefix}/${base}-$(basename ${f_comp})
+        fi
         cd ${base}
         mkdir build
         cd build
@@ -873,8 +888,8 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
             nclib=${ncdir}/lib/$(basename ${nclib})
         fi
         # dynamic
-        echo cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include
-        cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include
+        echo cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
+        cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
         case ${f_comp} in
             *nag*)
                 # nagfor cannot deal with .tbd files but needs dylib files
@@ -902,8 +917,8 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
             fi
         fi
         # static - do not set compiler again
-        echo cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include
-        cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include
+        echo cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
+        cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
         case ${f_comp} in
             *nag*)
                 # nagfor cannot deal with .tbd files but needs dylib files
@@ -1225,8 +1240,15 @@ if [[ ${doopenmpi} -eq 1 ]] ; then
     download_unpack ${base} ${zbase} ${http}
     # configure / make / check / install for all fortran compilers
     for f_comp in ${fortran_compilers} ; do
-        printf "Build ${base}-$(basename ${f_comp})\n"
-        iprefix=${prefix}/${base}-$(basename ${f_comp})
+        if [[ -n ${ONEAPI_ROOT} ]] ; then
+            printf "Build ${base}-oneapi\n"
+            iprefix=${prefix}/${base}-oneapi
+            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib
+            export CPATH=${CPATH}:/usr/local/include
+        else
+            printf "Build ${base}-$(basename ${f_comp})\n"
+            iprefix=${prefix}/${base}-$(basename ${f_comp})
+        fi
         case ${f_comp} in
             *pgfortran*) # first pgfortran then gfortran in case
                 bconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
