@@ -225,7 +225,7 @@ dohdf5=0                 # make check works but might fail on Mac because of dyl
                          # 1.10.1: 4301; 1.10.5: 13571
   hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
 donetcdf4=0              # make check might stop, just make check and sudo make install manually
-  netcdf4=4.7.4          #
+  netcdf4=4.8.0          #
 donetcdf4_fortran=0      # make check might stop, just make check and sudo make install manually
   netcdf4_fortran=4.5.3
 donetcdf3=0              # pgfortran might stop, just make, make check, sudo make install manually
@@ -263,14 +263,14 @@ donco=0
   nco=4.9.2
 doopenmpi=0
   #openmpi=3.1.5
-  openmpi=4.0.5          # Does not work with pgfortran yet, make install fails; do manually,
+  openmpi=4.1.1          # Does not work with pgfortran yet, make install fails; do manually,
                          # where 20 in libmpi_usempif08.20.dylib stands for openmpi=2.0.x
                          #   cd openmpi-* ; cd ompi/mpi/fortran/use-mpi-f08/.libs/
                          #   ln -sf ../libmpi_usempif08.la libmpi_usempif08.20.dylib
                          #   cd - ; sudo make install
                          #   cd .. ; \rm -r openmpi-*
 dompich=0
-  mpich=3.3.2
+  mpich=3.4.1
 
 # Python-Matplotlib
 # Georeferencing in basemap
@@ -1300,7 +1300,7 @@ if [[ ${dompich} -eq 1 ]] ; then
                 bconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
                 ;;
             *gfortran*) # first pgfortran then gfortran in case
-                bconf="FC=${f_comp}"
+                bconf="FC=${f_comp} FFLAGS='-fallow-argument-mismatch'"
                 ;;
             *nag*)
                 bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full' F77=${f_comp} FFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full'"
