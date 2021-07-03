@@ -270,7 +270,7 @@ doopenmpi=0
                          #   cd - ; sudo make install
                          #   cd .. ; \rm -r openmpi-*
 dompich=0
-  mpich=3.4.1
+  mpich=3.4.2
 
 # Python-Matplotlib
 # Georeferencing in basemap
@@ -308,10 +308,10 @@ fortran_compilers="gfortran"
 # fortran_compilers="nagfor"
 # fortran_compilers="/opt/pgi/osx86-64/19.4/bin/pgfortran"
 # fortran_compilers="pgfortran"
-# Standard Intel
+# # Standard Intel
 # source /opt/intel/bin/compilervars.sh intel64
 # fortran_compilers="ifort"
-# Intel OneAPI
+# # Intel OneAPI
 # source /opt/intel/oneapi/setvars.sh
 # fortran_compilers="ifort"
 
@@ -1293,8 +1293,15 @@ if [[ ${dompich} -eq 1 ]] ; then
     download_unpack ${base} ${zbase} ${http}
     # configure / make / check / install for all fortran compilers
     for f_comp in ${fortran_compilers} ; do
-        printf "Build ${base}-$(basename ${f_comp})\n"
-        iprefix=${prefix}/${base}-$(basename ${f_comp})
+        if [[ -n ${ONEAPI_ROOT} ]] ; then
+            printf "Build ${base}-oneapi\n"
+            iprefix=${prefix}/${base}-oneapi
+            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib
+            export CPATH=${CPATH}:/usr/local/include
+        else
+            printf "Build ${base}-$(basename ${f_comp})\n"
+            iprefix=${prefix}/${base}-$(basename ${f_comp})
+        fi
         case ${f_comp} in
             *pgfortran*) # first pgfortran then gfortran in case
                 bconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
