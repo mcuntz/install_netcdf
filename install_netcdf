@@ -133,7 +133,7 @@
 # authors: Matthias Cuntz with testing by Stephan Thober
 # created: Oct 2014
 #
-# Copyright (c) 2014-2019 Matthias Cuntz - mc (at) macu (dot) de
+# Copyright (c) 2014-2021 Matthias Cuntz - mc (at) macu (dot) de
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -317,16 +317,26 @@ fortran_compilers="gfortran"
 
 # Extra CPPFLAGS and LDFLAGS, for example for libs in non-default path such as /opt/lib
 if [[ "${sys}" == "darwin" ]] ; then
-    EXTRA_CPPFLAGS=
+    if [[ -z ${HOMEBREW_PREFIX} ]] ; then
+        if [[ -d /opt/homebrew ]] ; then
+            HOMEBREW_PREFIX="/opt/homebrew"
+        else
+            HOMEBREW_PREFIX="/usr/local"
+        fi
+    fi
+else
+    HOMEBREW_PREFIX=
+fi
+if [[ "${sys}" == "darwin" ]] ; then
+    EXTRA_CPPFLAGS="-I${HOMEBREW_PREFIX}/include"
+    EXTRA_LDFLAGS="-L${HOMEBREW_PREFIX}/lib"
     if [[ -n ${ONEAPI_ROOT} ]] ; then
-        EXTRA_LDFLAGS="-L${prefix}/lib"
-    else
-        EXTRA_LDFLAGS=
+        EXTRA_LDFLAGS="${EXTRA_LDFLAGS} -L${prefix}/lib"
     fi
     if [[ -d /usr/local/opt/hdf5\@1.8/include ]] ; then
         # using hdf5 v1.8.19 from homebrew
-        EXTRA_CPPFLAGS="-I/usr/local/opt/hdf5@1.8/include"
-        EXTRA_LDFLAGS="-L/usr/local/opt/hdf5@1.8/lib"
+        EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -I/usr/local/opt/hdf5@1.8/include"
+        EXTRA_LDFLAGS="${EXTRA_LDFLAGS} -L/usr/local/opt/hdf5@1.8/lib"
     fi
 else
     EXTRA_CPPFLAGS=
@@ -884,7 +894,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
         fi
         if [[ ! -e ${nclib} ]] ; then
             # if netcdf-c does not exist, try homebrew directory
-            ncdir=/usr/local/opt/netcdf
+            ncdir=${HOMEBREW_PREFIX}/opt/netcdf
             nclib=${ncdir}/lib/$(basename ${nclib})
         fi
         # dynamic
