@@ -263,7 +263,7 @@ donco=0
   nco=4.9.2
 doopenmpi=0
   #openmpi=3.1.5
-  openmpi=4.1.1          # Does not work with pgfortran yet, make install fails; do manually,
+  openmpi=4.1.2          # Does not work with pgfortran yet, make install fails; do manually,
                          # where 20 in libmpi_usempif08.20.dylib stands for openmpi=2.0.x
                          #   cd openmpi-* ; cd ompi/mpi/fortran/use-mpi-f08/.libs/
                          #   ln -sf ../libmpi_usempif08.la libmpi_usempif08.20.dylib
