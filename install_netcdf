@@ -331,7 +331,8 @@ if [[ "${sys}" == "darwin" ]] ; then
     EXTRA_CPPFLAGS="-I${HOMEBREW_PREFIX}/include"
     EXTRA_LDFLAGS="-L${HOMEBREW_PREFIX}/lib"
     if [[ -n ${ONEAPI_ROOT} ]] ; then
-        EXTRA_LDFLAGS="${EXTRA_LDFLAGS} -L${prefix}/lib"
+        EXTRA_LDFLAGS="${EXTRA_LDFLAGS} -L${prefix}/lib -L${PPATH}/lib"
+        EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -I${PPATH}/include"
     fi
     if [[ -d /usr/local/opt/hdf5\@1.8/include ]] ; then
         # using hdf5 v1.8.19 from homebrew
@@ -867,8 +868,8 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
         if [[ -n ${ONEAPI_ROOT} ]] ; then
             printf "Build ${base}-oneapi\n"
             iprefix=${prefix}/${base}-oneapi
-            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib
-            export CPATH=${CPATH}:/usr/local/include
+            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
+            export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
         else
             printf "Build ${base}-$(basename ${f_comp})\n"
             iprefix=${prefix}/${base}-$(basename ${f_comp})
@@ -1253,8 +1254,8 @@ if [[ ${doopenmpi} -eq 1 ]] ; then
         if [[ -n ${ONEAPI_ROOT} ]] ; then
             printf "Build ${base}-oneapi\n"
             iprefix=${prefix}/${base}-oneapi
-            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib
-            export CPATH=${CPATH}:/usr/local/include
+            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
+            export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
         else
             printf "Build ${base}-$(basename ${f_comp})\n"
             iprefix=${prefix}/${base}-$(basename ${f_comp})
@@ -1306,8 +1307,8 @@ if [[ ${dompich} -eq 1 ]] ; then
         if [[ -n ${ONEAPI_ROOT} ]] ; then
             printf "Build ${base}-oneapi\n"
             iprefix=${prefix}/${base}-oneapi
-            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib
-            export CPATH=${CPATH}:/usr/local/include
+            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
+            export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
         else
             printf "Build ${base}-$(basename ${f_comp})\n"
             iprefix=${prefix}/${base}-$(basename ${f_comp})
