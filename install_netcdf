@@ -25,10 +25,11 @@
 #   grib_api        <- netcdf4, jasper, libpng
 #     or
 #   eccodes         <- netcdf4, jasper, libpng
+#   libtiff         <- jpeg
+#   proj4           <- sqlite, libtiff, curl
 #   cdo             <- netcdf4, proj4, grib_api or eccodes, udunits
 #   nco             <- netcdf4, gsl, udunits, pkg-config, antlr v2 (not v3/4) for ncap2
 #   ncview          <- netcdf4, udunits
-#   tiff            <- jpeg
 #   ffmpeg          <- yasm
 #
 # The websites to check for the latest versions are:
@@ -41,7 +42,7 @@
 #   udunits           - ftp://ftp.unidata.ucar.edu/pub/udunits/
 #   libpng            - http://sourceforge.net/projects/libpng/files/
 #   libjpeg           - http://www.ijg.org/files/
-#   tiff              - https://download.osgeo.org/libtiff/
+#   libtiff           - https://download.osgeo.org/libtiff/
 #   proj4             - https://download.osgeo.org/proj/
 #   jasper            - http://www.ece.uvic.ca/~frodo/jasper/
 #   grib_api          - https://software.ecmwf.int/wiki/display/GRIB/Releases
@@ -91,7 +92,7 @@
 #     doudunits=0
 #     dolibpng=0
 #     dolibjpeg=0
-#     dotiff=0
+#     dolibtiff=0
 #     doproj4=0
 #     dojasper=0
 #     dogsl=0
@@ -127,7 +128,7 @@
 #     dozlib=0
 #     dolibpng=0
 #     dolibjpeg=0
-#     dotiff=0
+#     dolibtiff=0
 #     doantlr=0
 #
 # authors: Matthias Cuntz with testing by Stephan Thober
@@ -234,12 +235,14 @@ doudunits=0
   udunits=2.2.26
 dolibpng=0
   libpng=1.6.37
-dolibjpeg=0
-  libjpeg=9d
-dotiff=0
-  tiff=4.1.0
-doproj4=0
-  proj4=6.3.1
+  dolibjpeg=0            # one test fails on Linux, but seems to work
+  libjpeg=9e
+dolibtiff=0              # eight tests fail on Linux, but seems to work
+  libtiff=4.4.0
+dosqlite=0
+  sqlite=3.39.0
+doproj4=0                # some tests fail on Linux, but seems to work
+  proj4=8.2.1            # v8.2.1 last one that supports autotools; >v9 uses Cmake
 dojasper=0
   jasper=1.900.1         # 1.900.29; tested 2.0.14, but not compatible with grib_api
 doeccodes=0              # for cdo > 1.9.0
@@ -275,7 +278,7 @@ dompich=0
 # Python-Matplotlib
 # Georeferencing in basemap
 dogeos=0                 # one check fails (< 3.6.2) on Mac OS X but can be ignored
-  geos=3.8.0
+  geos=3.11.0
 # GeoTiffs
 dogdal=0
   gdal=3.4.0
@@ -1044,12 +1047,25 @@ if [[ ${dolibjpeg} -eq 1 ]] ; then
     cleanup ${base} ${zbase}
 fi
 
-# build tiff
-if [[ ${dotiff} -eq 1 ]] ; then
-    printf 'build tiff\n'
-    base=tiff-${tiff}
+# build libtiff
+if [[ ${dolibtiff} -eq 1 ]] ; then
+    printf 'build libtiff\n'
+    base=tiff-${libtiff}
     zbase=${base}.tar.gz
     http=https://download.osgeo.org/libtiff
+    download_configure_make_check_install ${base} ${zbase} ${http}
+fi
+
+# build sqlite
+if [[ ${dosqlite} -eq 1 ]] ; then
+    printf 'build sqlite\n'
+    maj=$(echo ${sqlite} | cut -f 1 -d '.')
+    min=$(echo ${sqlite} | cut -f 2 -d '.')
+    mic=$(echo ${sqlite} | cut -f 3 -d '.' | printf "%04d")
+    vsqlite="${maj}${min}${mic}"
+    base=sqlite-autoconf-${vsqlite}
+    zbase=${base}.tar.gz
+    http=https://www.sqlite.org/2022
     download_configure_make_check_install ${base} ${zbase} ${http}
 fi
 
@@ -1059,7 +1075,7 @@ if [[ ${doproj4} -eq 1 ]] ; then
     base=proj-${proj4}
     zbase=${base}.tar.gz
     http=https://download.osgeo.org/proj
-    download_configure_make_check_install ${base} ${zbase} ${http}
+    download_configure_make_check_install ${base} ${zbase} ${http} "PKG_CONFIG_PATH='${prefix}/lib/pkgconfig'"
 fi
 
 # build jasper
