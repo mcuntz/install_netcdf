@@ -342,11 +342,6 @@ if [[ "${sys}" == "darwin" ]] ; then
         EXTRA_LDFLAGS="${EXTRA_LDFLAGS} -L${prefix}/lib -L${PPATH}/lib"
         EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -I${PPATH}/include"
     fi
-    if [[ -d /usr/local/opt/hdf5\@1.8/include ]] ; then
-        # using hdf5 v1.8.19 from homebrew
-        EXTRA_CPPFLAGS="${EXTRA_CPPFLAGS} -I/usr/local/opt/hdf5@1.8/include"
-        EXTRA_LDFLAGS="${EXTRA_LDFLAGS} -L/usr/local/opt/hdf5@1.8/lib"
-    fi
 else
     EXTRA_CPPFLAGS=
     EXTRA_LDFLAGS="-Wl,-rpath=${prefix}/lib"
@@ -355,10 +350,19 @@ fi
 # Path to zlib's and pthread's include/ lib/ directories (e.g. lib/libz.*)
 # Path to curl lib (libcurl.*) for cdo
 if [[ "${sys}" == "darwin" ]] ; then
-    # ZPATH=${prefix}
-    ZPATH=/usr
-    PPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr
-    CURLLIB=/usr/lib
+    osver=$(uname -r)
+    osver=${osver%%.*}
+    if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
+        # there are still links of, for example, libz.dylib in /usr/lib/
+        # ZPATH=${prefix}
+        ZPATH=/usr
+        PPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr
+        CURLLIB=/usr/lib
+    else
+        ZPATH=
+        PPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr
+        CURLLIB=
+    fi
 else
     ZPATH=/usr
     PPATH=/usr
@@ -894,6 +898,8 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 # strange NCSHORT_T etc. in ftest.f, they are defined in confdefs.h in C-Library
                 sed -e '/ftest/d' ../nf_test/CMakeLists.txt > CMakeLists.tmp
                 mv CMakeLists.tmp ../nf_test/CMakeLists.txt
+                export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
+                export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
                 ;;
             *)
                 true
@@ -916,10 +922,22 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
         case ${f_comp} in
             *nag*)
                 # nagfor cannot deal with .tbd files but needs dylib files
-                for i in $(find . -name link.txt -print) ; do
-                    sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
-                    mv link.tmp ${i}
-                done
+                if [[ "${sys}" == "darwin" ]] ; then
+                    osver=$(uname -r)
+                    osver=${osver%%.*}
+                    if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
+                        # there are still links of, for example, libz.dylib in /usr/lib/
+                        for i in $(find . -name link.txt -print) ; do
+                            sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
+                            mv link.tmp ${i}
+                        done
+                    else
+                        for i in $(find . -name link.txt -print) ; do
+                            sed -e '/.tbd/s| [^ ]*lib/lib\([^ ]*\).tbd| -Wl,-l\1|g' ${i} > link.tmp
+                            mv link.tmp ${i}
+                        done
+                    fi
+                fi
             ;;
             *)
                 true
@@ -945,11 +963,23 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
         cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
         case ${f_comp} in
             *nag*)
-                # nagfor cannot deal with .tbd files but needs dylib files
-                for i in $(find . -name link.txt -print) ; do
-                    sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
-                    mv link.tmp ${i}
-                done
+                  # nagfor cannot deal with .tbd files but needs dylib files
+                  if [[ "${sys}" == "darwin" ]] ; then
+                      osver=$(uname -r)
+                      osver=${osver%%.*}
+                      if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
+                          # there are still links of, for example, libz.dylib in /usr/lib/
+                          for i in $(find . -name link.txt -print) ; do
+                              sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
+                              mv link.tmp ${i}
+                          done
+                      else
+                          for i in $(find . -name link.txt -print) ; do
+                              sed -e '/.tbd/s| [^ ]*lib/lib\([^ ]*\).tbd| -Wl,-l\1|g' ${i} > link.tmp
+                              mv link.tmp ${i}
+                          done
+                      fi
+                  fi
                 ;;
             *)
                 true
