@@ -441,7 +441,7 @@ function unpack() {
         *.tar.Z)   tar -xvZf ${izbase} ;;
         *.tar.xz)  tar -xvJf ${izbase} ;;
         *.zip)     unzip     ${izbase} ;;
-        *) printf "Error: compression not known ${izbase#${ibase}}\n\n" 1>&2; exit 1;;
+        *) printf "Error: compression not known ${izbase#${ibase}}\n\n" 1>&2; exit 1 ;;
     esac
 }
 
@@ -921,24 +921,27 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
         cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include # -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
         case ${f_comp} in
             *nag*)
-                # nagfor cannot deal with .tbd files but needs dylib files
+                # nagfor < v7119 cannot deal with .tbd files but needs dylib files
                 if [[ "${sys}" == "darwin" ]] ; then
-                    osver=$(uname -r)
-                    osver=${osver%%.*}
-                    if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
-                        # there are still links of, for example, libz.dylib in /usr/lib/
-                        for i in $(find . -name link.txt -print) ; do
-                            sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
-                            mv link.tmp ${i}
-                        done
-                    else
-                        for i in $(find . -name link.txt -print) ; do
-                            sed -e '/.tbd/s| [^ ]*lib/lib\([^ ]*\).tbd| -Wl,-l\1|g' ${i} > link.tmp
-                            mv link.tmp ${i}
-                        done
+                    vnag=$(${f_comp} -V 2>&1 | head -1 | awk '{print $NF}')
+                    if [[ ${vnag} -lt 7119 ]] ; then
+                        osver=$(uname -r)
+                        osver=${osver%%.*}
+                        if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
+                            # there are still links of, for example, libz.dylib in /usr/lib/
+                            for i in $(find . -name link.txt -print) ; do
+                                sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
+                                mv link.tmp ${i}
+                            done
+                        else
+                            for i in $(find . -name link.txt -print) ; do
+                                sed -e '/.tbd/s| [^ ]*lib/lib\([^ ]*\).tbd| -Wl,-l\1|g' ${i} > link.tmp
+                                mv link.tmp ${i}
+                            done
+                        fi
                     fi
                 fi
-            ;;
+                ;;
             *)
                 true
                 ;;
@@ -963,23 +966,26 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
         cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
         case ${f_comp} in
             *nag*)
-                  # nagfor cannot deal with .tbd files but needs dylib files
-                  if [[ "${sys}" == "darwin" ]] ; then
-                      osver=$(uname -r)
-                      osver=${osver%%.*}
-                      if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
-                          # there are still links of, for example, libz.dylib in /usr/lib/
-                          for i in $(find . -name link.txt -print) ; do
-                              sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
-                              mv link.tmp ${i}
-                          done
-                      else
-                          for i in $(find . -name link.txt -print) ; do
-                              sed -e '/.tbd/s| [^ ]*lib/lib\([^ ]*\).tbd| -Wl,-l\1|g' ${i} > link.tmp
-                              mv link.tmp ${i}
-                          done
-                      fi
-                  fi
+                # nagfor < v7119 cannot deal with .tbd files but needs dylib files
+                if [[ "${sys}" == "darwin" ]] ; then
+                    vnag=$(${f_comp} -V 2>&1 | head -1 | awk '{print $NF}')
+                    if [[ ${vnag} -lt 7119 ]] ; then
+                        osver=$(uname -r)
+                        osver=${osver%%.*}
+                        if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
+                            # there are still links of, for example, libz.dylib in /usr/lib/
+                            for i in $(find . -name link.txt -print) ; do
+                                sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
+                                mv link.tmp ${i}
+                            done
+                        else
+                            for i in $(find . -name link.txt -print) ; do
+                                sed -e '/.tbd/s| [^ ]*lib/lib\([^ ]*\).tbd| -Wl,-l\1|g' ${i} > link.tmp
+                                mv link.tmp ${i}
+                            done
+                        fi
+                    fi
+                fi
                 ;;
             *)
                 true
