@@ -225,19 +225,15 @@ doopenssl=0
   openssl=1.1.1d
 doszip=0
   szip=2.1.1
-dohdf5=0                 # make check works but might fail on Mac because of dylib circular dependencies
-                         # just cd into dir and sudo make install manually
-  hdf5=1.10.6            # download path for hdf5 > 1.10 is https://www.hdfgroup.org/package/source-gzip/?wpdmdl=${hdf5code}
-                         # check code at https://www.hdfgroup.org/package/source-gzip/
-                         # Try new link without code: https://support.hdfgroup.org/ftp/HDF5/releases/${base%.*}/${base}/src/${zbase}
-  hdf5code=13571         # download path has a number that changes with version, e.g.
-                         # 1.10.1: 4301; 1.10.5: 13571
+doparallel=0             # Parallel HDF5 and netCDF4
+dohdf5=0
+  hdf5=1.14.0
   hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
-donetcdf4=0              # make check might stop, just make check and sudo make install manually
-  netcdf4=4.9.0          #
-donetcdf4_fortran=0      # make check might stop, just make check and sudo make install manually
+donetcdf4=0              # make check might stop, use docheck=2
+  netcdf4=4.9.2
+donetcdf4_fortran=0      # make check might stop, use docheck=2
   netcdf4_fortran=4.6.0
-donetcdf3=0              # pgfortran might stop, just make, make check, sudo make install manually
+donetcdf3=0
   netcdf3=3.6.3
 doudunits=0
   udunits=2.2.26
@@ -359,7 +355,7 @@ if [[ "${sys}" == "darwin" ]] ; then
         PPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr
         CURLLIB=/usr/lib
     else
-        ZPATH=
+        ZPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr
         PPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr
         CURLLIB=
     fi
@@ -822,20 +818,62 @@ if [[ ${dohdf5} -eq 1 ]] ; then
     base=hdf5-${hdf5}
     zbase=${base}.tar.gz
     if [[ "${hdf5}" > "1.10.0" ]] ; then
-        # wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.N/hdf5-1.N.N/src/<distribution>.tar.gz
-        # http=https://www.hdfgroup.org/package/source-gzip/?wpdmdl=${hdf5code}
         http=https://support.hdfgroup.org/ftp/HDF5/releases/${base%.*}/${base}/src/${zbase}
         download_github_unpack ${base} ${zbase} ${http}
-        # iprefix=${prefix}/hdf5-${hdf5}
-        # cmake_make ${base} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH}"
-        cmake_make ${base} " " "-DHDF5_ENABLE_Z_LIB_SUPPORT=ON -DHDF5_ENABLE_SZIP_SUPPORT=ON -DHDF5_ENABLE_THREADSAFE=ON"
+        if [[ ${doparallel} -eq 1 ]] ; then
+            if [[ ${PATH} != *openmpi* ]] ; then
+                ompibase=openmpi-${openmpi}-gfortran
+                ompiprefix=${prefix}/${ompibase}
+                # ompiprefix=/usr/local/${ompibase}
+                export PATH=${PATH}:${ompiprefix}/bin
+            fi
+            printf "  Build ${base}-openmpi\n"
+            # cmake_make ${base} " " "-DHDF5_ENABLE_Z_LIB_SUPPORT=ON -DHDF5_ENABLE_SZIP_SUPPORT=ON -DHDF5_ENABLE_PARALLEL=ON -DCMAKE_C_FLAGS='-Wno-error=implicit-function-declaration'"
+            iprefix=${prefix}/${base}-openmpi
+            export MPICC='mpicc'
+            export MPICXX='mpicxx'
+            export MPIFC='mpifort'
+            export MPIF77='mpifort'
+            export MPIF90='mpifort'
+            export CC=${MPICC}
+            export CXX=${MPICXX}
+            export FC=${MPIFC}
+            export F77=${MPIF77}
+            export F90=${MPIF90}
+            #  -DBUILD_SHARED_LIBS=ON
+            cmake_make ${base} " " "-DHDF5_ENABLE_Z_LIB_SUPPORT=ON -DZLIB_ROOT==${ZPATH} -DHDF5_ENABLE_SZIP_SUPPORT=ON -DSZIP_ROOT=${prefix} -DHDF5_ENABLE_PARALLEL=ON -DHDF5_BUILD_CPP_LIB=OFF"
+        else
+            iprefix=${prefix}
+            cmake_make ${base} " " "-DHDF5_ENABLE_Z_LIB_SUPPORT=ON -DZLIB_ROOT==${ZPATH} -DHDF5_ENABLE_SZIP_SUPPORT=ON -DSZIP_ROOT=${prefix}"
+        fi
         if [[ ${hdf5check} -eq 1 ]] ; then
             check_test
         fi
         install
+        if [[ "${sys}" == "darwin" ]] ; then
+            # set @rpath/lib explicitly in library because LR_RPATH is not working all the time
+            set +e
+            hdflib=$(ls ${iprefix}/lib/libhdf5.[0-9].dylib ${iprefix}/lib/libhdf5.[0-9][0-9].dylib ${iprefix}/lib/libhdf5.[0-9][0-9][0-9].dylib 2>/dev/null)
+            set -e
+            if [[ ${dosudo} -eq 1 ]] ; then
+                sudo install_name_tool -id ${hdflib} ${hdflib}
+            else
+                install_name_tool -id ${hdflib} ${hdflib}
+            fi
+            set +e
+            hllib=$(ls ${iprefix}/lib/libhdf5_hl.[0-9].dylib ${iprefix}/lib/libhdf5_hl.[0-9][0-9].dylib ${iprefix}/lib/libhdf5_hl.[0-9][0-9][0-9].dylib 2>/dev/null)
+            set -e
+            if [[ ${dosudo} -eq 1 ]] ; then
+                sudo install_name_tool -id ${hllib} ${hllib}
+                sudo install_name_tool -change @rpath/$(basename ${hdflib}) ${hdflib} ${hllib}
+            else
+                install_name_tool -id ${hllib} ${hllib}
+                install_name_tool -change @rpath/$(basename ${hdflib}) ${hdflib} ${hllib}
+            fi
+        fi
         cd ../..
         cleanup ${base} ${zbase}
-        # iprefix=${prefix}
+        iprefix=${prefix}
     else
         http=http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${hdf5%.*}/hdf5-${hdf5}/src
         download_configure_make_check_install ${base} ${zbase} ${http} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH}"
@@ -845,21 +883,65 @@ fi
 # build netcdf4 C
 if [[ ${donetcdf4} -eq 1 ]] ; then
     printf 'build netcdf4-C\n'
-    base=netcdf-${netcdf4}
-    base2=netcdf-c-${netcdf4}
+    base=netcdf-c-${netcdf4}
     zbase=${base}.tar.gz
     http=https://codeload.github.com/Unidata/netcdf-c/tar.gz/v${netcdf4}
     download_github_unpack ${base} ${zbase} ${http}
+    # remove netcdf from homebrew if present
+    export PATH=$(echo $PATH | tr ":" "\n" | grep -v netcdf | tr "\n" ":")
     if [[ "${netcdf4}" > "4.4.1" ]] ; then
-        configure_make_check_install ${base2} " " "--disable-dap-remote-tests"
-        # configure_make_check_install ${base2} " " "--disable-dap --disable-dap-remote-tests"
-        cd ..
-        cleanup ${base2} ${zbase}
+        if [[ ${doparallel} -eq 1 ]] ; then
+            if [[ ${PATH} != *openmpi* ]] ; then
+                ompibase=openmpi-${openmpi}-gfortran
+                ompiprefix=${prefix}/${ompibase}
+                # ompiprefix=/usr/local/${ompibase}
+                export PATH=${PATH}:${ompiprefix}/bin
+            fi
+            printf "  Build ${base}-openmpi\n"
+            export MPICC='mpicc'
+            export MPICXX='mpicxx'
+            export MPIFC='mpifort'
+            export MPIF77='mpifort'
+            export MPIF90='mpifort'
+            export CC=${MPICC}
+            export CXX=${MPICXX}
+            export FC=${MPIFC}
+            export F77=${MPIF77}
+            export F90=${MPIF90}
+            hdf5base=hdf5-${hdf5}
+            hdf5prefix=${prefix}/${hdf5base}-openmpi
+            iprefix=${prefix}/${base}-openmpi
+        else
+            hdf5prefix=${prefix}
+            iprefix=${prefix}
+        fi
+        cmake_make_test_install ${base} " " "-DHDF5_ROOT=${hdf5prefix} -DENABLE_DAP_REMOTE_TESTS=OFF -DENABLE_SHARED=ON"
+        cd ../..
+        cleanup ${base} ${zbase}
     else
+        iprefix=${prefix}
         configure_make_check_install ${base} " " "--disable-dap-remote-tests"
         cd ..
         cleanup ${base} ${zbase}
     fi
+    if [[ "${sys}" == "darwin" ]] ; then
+        # set @rpath/lib explicitly in library because LR_RPATH is not working all the time
+        set +e
+        nclib=$(ls ${iprefix}/lib/libnetcdf.[0-9].dylib ${iprefix}/lib/libnetcdf.[0-9][0-9].dylib 2>/dev/null)
+        hdflib=$(ls ${hdf5prefix}/lib/libhdf5.[0-9].dylib ${hdf5prefix}/lib/libhdf5.[0-9][0-9].dylib ${hdf5prefix}/lib/libhdf5.[0-9][0-9][0-9].dylib 2>/dev/null)
+        hllib=$(ls ${hdf5prefix}/lib/libhdf5_hl.[0-9].dylib ${hdf5prefix}/lib/libhdf5_hl.[0-9][0-9].dylib ${hdf5prefix}/lib/libhdf5_hl.[0-9][0-9][0-9].dylib 2>/dev/null)
+        set -e
+        if [[ ${dosudo} -eq 1 ]] ; then
+            sudo install_name_tool -id ${nclib} ${nclib}
+            sudo install_name_tool -change @rpath/$(basename ${hdflib}) ${hdflib} ${nclib}
+            sudo install_name_tool -change @rpath/$(basename ${hllib}) ${hllib} ${nclib}
+        else
+            install_name_tool -id ${nclib} ${nclib}
+            install_name_tool -change @rpath/$(basename ${hdflib}) ${hdflib} ${nclib}
+            install_name_tool -change @rpath/$(basename ${hllib}) ${hllib} ${nclib}
+        fi
+    fi
+    iprefix=${prefix}
 fi
 
 # build netcdf4-fortran
@@ -869,6 +951,8 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
     zbase=${base}.tar.gz
     http=https://codeload.github.com/Unidata/netcdf-fortran/tar.gz/v${netcdf4_fortran}
     download_github_unpack ${base} ${zbase} ${http}
+    # remove netcdf from homebrew if present
+    export PATH=$(echo $PATH | tr ":" "\n" | grep -v netcdf | tr "\n" ":")
     # configure / make / check / install for all fortran compilers
     for f_comp in ${fortran_compilers} ; do
         case ${f_comp} in
@@ -880,128 +964,179 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 true
                 ;;
         esac
-        if [[ -n ${ONEAPI_ROOT} ]] ; then
-            printf "Build ${base}-oneapi\n"
-            iprefix=${prefix}/${base}-oneapi
-            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
-            export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
-        else
-            printf "Build ${base}-$(basename ${f_comp})\n"
-            iprefix=${prefix}/${base}-$(basename ${f_comp})
-        fi
-        # iprefix=${prefix}
-        cd ${base}
-        mkdir build
-        cd build
-        case ${f_comp} in
-            *nag*)
-                # strange NCSHORT_T etc. in ftest.f, they are defined in confdefs.h in C-Library
-                sed -e '/ftest/d' ../nf_test/CMakeLists.txt > CMakeLists.tmp
-                mv CMakeLists.tmp ../nf_test/CMakeLists.txt
+        if [[ ${doparallel} -eq 1 ]] ; then
+            if [[ ${PATH} != *openmpi* ]] ; then
+                ompibase=openmpi-${openmpi}-gfortran
+                ompiprefix=${prefix}/${ompibase}
+                # ompiprefix=/usr/local/${ompibase}
+                export PATH=${PATH}:${ompiprefix}/bin
+            else
+                ompiprefix=$(dirname $(dirname $(which mpicc)))
+            fi
+            printf "  Build ${base}-openmpi\n"
+            export MPICC='mpicc'
+            export MPICXX='mpicxx'
+            export MPIFC='mpifort'
+            export MPIF77='mpifort'
+            export MPIF90='mpifort'
+            export CC=${MPICC}
+            export CXX=${MPICXX}
+            export FC=${MPIFC}
+            export F77=${MPIF77}
+            export F90=${MPIF90}
+            hdf5base=hdf5-${hdf5}
+            hdf5prefix=${prefix}/${hdf5base}-openmpi
+            netcdfcbase=netcdf-c-${netcdf4}
+            netcdfcprefix=${prefix}/${netcdfcbase}-openmpi
+            if [[ -n ${ONEAPI_ROOT} ]] ; then
+                printf "Build ${base}-openmpi-oneapi\n"
+                iprefix=${prefix}/${base}-openmpi-oneapi
                 export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
                 export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
-                ;;
-            *)
-                true
-                ;;
-        esac
-        ncdir=${prefix}
-        if [[ "${sys}" == "darwin" ]] ; then
-            nclib=${ncdir}/lib/libnetcdf.dylib
-        else
-            nclib=${ncdir}/lib/libnetcdf.so
-        fi
-        if [[ ! -e ${nclib} ]] ; then
-            # if netcdf-c does not exist, try homebrew directory
-            ncdir=${HOMEBREW_PREFIX}/opt/netcdf
-            nclib=${ncdir}/lib/$(basename ${nclib})
-        fi
-        # dynamic
-        echo cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include # -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
-        cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include # -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
-        case ${f_comp} in
-            *nag*)
-                # nagfor < v7119 cannot deal with .tbd files but needs dylib files
-                if [[ "${sys}" == "darwin" ]] ; then
-                    vnag=$(${f_comp} -V 2>&1 | head -1 | awk '{print $NF}')
-                    if [[ ${vnag} -lt 7119 ]] ; then
-                        osver=$(uname -r)
-                        osver=${osver%%.*}
-                        if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
-                            # there are still links of, for example, libz.dylib in /usr/lib/
-                            for i in $(find . -name link.txt -print) ; do
-                                sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
-                                mv link.tmp ${i}
-                            done
-                        else
-                            for i in $(find . -name link.txt -print) ; do
-                                sed -e '/.tbd/s| [^ ]*lib/lib\([^ ]*\).tbd| -Wl,-l\1|g' ${i} > link.tmp
-                                mv link.tmp ${i}
-                            done
-                        fi
-                    fi
-                fi
-                ;;
-            *)
-                true
-                ;;
-        esac
-        make -j ${ncpu}
-        check_test
-        install
-        if [[ "${sys}" == "darwin" ]] ; then
-            # set @rpath/lib explicitly in library because LR_RPATH is not working all the time
-            set +e
-            ilib=$(ls ${iprefix}/lib/libnetcdff.[0-9].dylib ${iprefix}/lib/libnetcdff.[0-9][0-9].dylib 2>/dev/null)
-            set -e
-            if [[ ${dosudo} -eq 1 ]] ; then
-                sudo install_name_tool -id ${ilib} ${ilib}
             else
-                install_name_tool -id ${ilib} ${ilib}
+                printf "Build ${base}-openmpi-$(basename ${f_comp})\n"
+                iprefix=${prefix}/${base}-openmpi-$(basename ${f_comp})
             fi
-        fi
-        # static - do not set compiler again
-        nclib=${ncdir}/lib/libnetcdf.a
-        echo cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
-        cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
-        case ${f_comp} in
-            *nag*)
-                # nagfor < v7119 cannot deal with .tbd files but needs dylib files
-                if [[ "${sys}" == "darwin" ]] ; then
-                    vnag=$(${f_comp} -V 2>&1 | head -1 | awk '{print $NF}')
-                    if [[ ${vnag} -lt 7119 ]] ; then
-                        osver=$(uname -r)
-                        osver=${osver%%.*}
-                        if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
-                            # there are still links of, for example, libz.dylib in /usr/lib/
-                            for i in $(find . -name link.txt -print) ; do
-                                sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
-                                mv link.tmp ${i}
-                            done
-                        else
-                            for i in $(find . -name link.txt -print) ; do
-                                sed -e '/.tbd/s| [^ ]*lib/lib\([^ ]*\).tbd| -Wl,-l\1|g' ${i} > link.tmp
-                                mv link.tmp ${i}
-                            done
+            export LD_LIBRARY_PATH=${netcdfcprefix}/lib:${LD_LIBRARY_PATH}
+            ZDIR=/usr/local/opt/zstd
+            if [[ -d ${ZDIR} ]] ; then
+                ZINC="-I${ZDIR}/include"
+                ZLIBDIR="${ZDIR}/lib"
+                ZLIB="-L${ZLIBDIR}"
+                ZLIBS="-lzstd"
+            fi
+            cd ${base}
+            CC=${MPICC} FC=${MPIF90} F77=${MPIF77} CPPFLAGS="-I${netcdfcprefix}/include -I${hdf5prefix}/include -I${ompiprefix}/include ${ZINC}" LDFLAGS="-L${netcdfcprefix}/lib -L${hdf5prefix}/lib -L${ompiprefix}/lib ${ZLIB}" LD_LIBRARY_PATH=${netcdfcprefix}/lib:${hdf5prefix}/lib:${ompiprefix}/lib:${ZLIBDIR} LIBS="-lnetcdf -lhdf5_hl -lhdf5 -lm -lz ${ZLIBS} -lbz2 -lcurl -lxml2" ./configure --prefix=${iprefix}
+            make -j ${ncpu}
+            check_test
+            install
+            cd ..
+            iprefix=${prefix}
+        else
+            hdf5prefix=${prefix}
+            netcdfcprefix=${prefix}
+            if [[ -n ${ONEAPI_ROOT} ]] ; then
+                printf "Build ${base}-oneapi\n"
+                iprefix=${prefix}/${base}-oneapi
+                export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
+                export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
+            else
+                printf "Build ${base}-$(basename ${f_comp})\n"
+                iprefix=${prefix}/${base}-$(basename ${f_comp})
+            fi
+            cd ${base}
+            mkdir build
+            cd build
+            case ${f_comp} in
+                *nag*)
+                    # strange NCSHORT_T etc. in ftest.f, they are defined in confdefs.h in C-Library
+                    sed -e '/ftest/d' ../nf_test/CMakeLists.txt > CMakeLists.tmp
+                    mv CMakeLists.tmp ../nf_test/CMakeLists.txt
+                    export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
+                    export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
+                    ;;
+                *)
+                    true
+                    ;;
+            esac
+            if [[ "${sys}" == "darwin" ]] ; then
+                nclib=${netcdfcprefix}/lib/libnetcdf.dylib
+            else
+                nclib=${netcdfcprefix}/lib/libnetcdf.so
+            fi
+            if [[ ! -e ${nclib} ]] ; then
+                # if netcdf-c does not exist, try homebrew directory
+                netcdfcprefix=${HOMEBREW_PREFIX}/opt/netcdf
+                nclib=${netcdfcprefix}/lib/$(basename ${nclib})
+            fi
+            # dynamic
+            cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${netcdfcprefix}/include
+            # -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
+            case ${f_comp} in
+                *nag*)
+                    # nagfor < v7119 cannot deal with .tbd files but needs dylib files
+                    if [[ "${sys}" == "darwin" ]] ; then
+                        vnag=$(${f_comp} -V 2>&1 | head -1 | awk '{print $NF}')
+                        if [[ ${vnag} -lt 7119 ]] ; then
+                            osver=$(uname -r)
+                            osver=${osver%%.*}
+                            if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
+                                # there are still links of, for example, libz.dylib in /usr/lib/
+                                for i in $(find . -name link.txt -print) ; do
+                                    sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
+                                    mv link.tmp ${i}
+                                done
+                            else
+                                for i in $(find . -name link.txt -print) ; do
+                                    sed -e '/.tbd/s| [^ ]*lib/lib\([^ ]*\).tbd| -Wl,-l\1|g' ${i} > link.tmp
+                                    mv link.tmp ${i}
+                                done
+                            fi
                         fi
                     fi
+                    ;;
+                *)
+                    true
+                    ;;
+            esac
+            make -j ${ncpu}
+            check_test
+            install
+            if [[ "${sys}" == "darwin" ]] ; then
+                # set @rpath/lib explicitly in library because LR_RPATH is not working all the time
+                set +e
+                ilib=$(ls ${iprefix}/lib/libnetcdff.[0-9].dylib ${iprefix}/lib/libnetcdff.[0-9][0-9].dylib 2>/dev/null)
+                set -e
+                if [[ ${dosudo} -eq 1 ]] ; then
+                    # sudo install_name_tool -id ${ilib} ${ilib}
+                    sudo install_name_tool -add_rpath ${iprefix}/lib ${ilib}
+                else
+                    # install_name_tool -id ${ilib} ${ilib}
+                    install_name_tool -add_rpath ${iprefix}/lib ${ilib}
                 fi
-                ;;
-            *)
-                true
-                ;;
-        esac
-        make -j ${ncpu}
-        check_test
-        install
-        cd ..
-        if [[ ${dosudo} -eq 1 ]] ; then
-            sudo rm -r build
-        else
-            rm -r build
+            fi
+            # static - do not set compiler again
+            nclib=${netcdfcprefix}/lib/libnetcdf.a
+            cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz -ldl -lm -lzstd -lbz2 -lcurl -lxml2"
+            case ${f_comp} in
+                *nag*)
+                    # nagfor < v7119 cannot deal with .tbd files but needs dylib files
+                    if [[ "${sys}" == "darwin" ]] ; then
+                        vnag=$(${f_comp} -V 2>&1 | head -1 | awk '{print $NF}')
+                        if [[ ${vnag} -lt 7119 ]] ; then
+                            osver=$(uname -r)
+                            osver=${osver%%.*}
+                            if [[ ${osver} -lt 22 ]] ; then  # macOS < 13
+                                # there are still links of, for example, libz.dylib in /usr/lib/
+                                for i in $(find . -name link.txt -print) ; do
+                                    sed -e '/.tbd/s| [^ ]*\(/usr/lib/[^ ]*\).tbd| \1.dylib|g' ${i} > link.tmp
+                                    mv link.tmp ${i}
+                                done
+                            else
+                                for i in $(find . -name link.txt -print) ; do
+                                    sed -e '/.tbd/s| [^ ]*lib/lib\([^ ]*\).tbd| -Wl,-l\1|g' ${i} > link.tmp
+                                    mv link.tmp ${i}
+                                done
+                            fi
+                        fi
+                    fi
+                    ;;
+                *)
+                    true
+                    ;;
+            esac
+            make -j ${ncpu}
+            check_test
+            install
+            cd ..
+            if [[ ${dosudo} -eq 1 ]] ; then
+                sudo rm -r build
+            else
+                rm -r build
+            fi
+            iprefix=${prefix}
+            cd ..
         fi
-        iprefix=${prefix}
-        cd ..
     done
     cleanup ${base} ${zbase}
 fi
