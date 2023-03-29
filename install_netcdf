@@ -207,12 +207,12 @@ done
 # Setup
 
 # Where to install
-prefix=/usr/local
+prefix=/usr/local/openmpi-gfortran
 
 # Which steps to do
 # steps are: 1. download, 2. unpack, 3. configure, make, install, 4. clean-up
 dodownload=1 # 1: curl sources, 0: skip
-docheck=1    # 1: make check, 2: make check but do not exit on errors, 0: skip
+docheck=2    # 1: make check, 2: make check but do not exit on errors, 0: skip
 dormtar=1    # 1: rm downloaded sources, 0: skip
 dosudo=1     # 1: install in ${prefix} with sudo, 0: install as user
 
@@ -225,7 +225,8 @@ doopenssl=0
   openssl=1.1.1d
 doszip=0
   szip=2.1.1
-doparallel=0             # Parallel HDF5 and netCDF4
+doparallel=0             # Parallel HDF5 and netCDF4, set e.g. prefix=/usr/local/openmpi
+  mpiprefix=/usr/local/openmpi-4.1.4-gfortran
 dohdf5=0
   hdf5=1.14.0
   hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
@@ -821,15 +822,8 @@ if [[ ${dohdf5} -eq 1 ]] ; then
         http=https://support.hdfgroup.org/ftp/HDF5/releases/${base%.*}/${base}/src/${zbase}
         download_github_unpack ${base} ${zbase} ${http}
         if [[ ${doparallel} -eq 1 ]] ; then
-            if [[ ${PATH} != *openmpi* ]] ; then
-                ompibase=openmpi-${openmpi}-gfortran
-                ompiprefix=${prefix}/${ompibase}
-                # ompiprefix=/usr/local/${ompibase}
-                export PATH=${PATH}:${ompiprefix}/bin
-            fi
-            printf "  Build ${base}-openmpi\n"
-            # cmake_make ${base} " " "-DHDF5_ENABLE_Z_LIB_SUPPORT=ON -DHDF5_ENABLE_SZIP_SUPPORT=ON -DHDF5_ENABLE_PARALLEL=ON -DCMAKE_C_FLAGS='-Wno-error=implicit-function-declaration'"
-            iprefix=${prefix}/${base}-openmpi
+            if [[ ${PATH} != *mpi* ]] ; then export PATH=${PATH}:${mpiprefix}/bin ; fi
+            printf "  Build parallel\n"
             export MPICC='mpicc'
             export MPICXX='mpicxx'
             export MPIFC='mpifort'
@@ -840,12 +834,12 @@ if [[ ${dohdf5} -eq 1 ]] ; then
             export FC=${MPIFC}
             export F77=${MPIF77}
             export F90=${MPIF90}
-            #  -DBUILD_SHARED_LIBS=ON
-            cmake_make ${base} " " "-DHDF5_ENABLE_Z_LIB_SUPPORT=ON -DZLIB_ROOT==${ZPATH} -DHDF5_ENABLE_SZIP_SUPPORT=ON -DSZIP_ROOT=${prefix} -DHDF5_ENABLE_PARALLEL=ON -DHDF5_BUILD_CPP_LIB=OFF"
+            dparallel="-DHDF5_ENABLE_PARALLEL=ON -DHDF5_BUILD_CPP_LIB=OFF"
         else
-            iprefix=${prefix}
-            cmake_make ${base} " " "-DHDF5_ENABLE_Z_LIB_SUPPORT=ON -DZLIB_ROOT==${ZPATH} -DHDF5_ENABLE_SZIP_SUPPORT=ON -DSZIP_ROOT=${prefix}"
+            dparallel=""
         fi
+        # -DCMAKE_C_FLAGS='-Wno-error=implicit-function-declaration'
+        cmake_make ${base} " " "-DHDF5_ENABLE_Z_LIB_SUPPORT=ON -DZLIB_ROOT==${ZPATH} -DHDF5_ENABLE_SZIP_SUPPORT=ON -DSZIP_ROOT=${prefix} ${dparallel}"
         if [[ ${hdf5check} -eq 1 ]] ; then
             check_test
         fi
@@ -853,27 +847,26 @@ if [[ ${dohdf5} -eq 1 ]] ; then
         if [[ "${sys}" == "darwin" ]] ; then
             # set @rpath/lib explicitly in library because LR_RPATH is not working all the time
             set +e
-            hdflib=$(ls ${iprefix}/lib/libhdf5.[0-9].dylib ${iprefix}/lib/libhdf5.[0-9][0-9].dylib ${iprefix}/lib/libhdf5.[0-9][0-9][0-9].dylib 2>/dev/null)
+            hdflib=$(ls ${prefix}/lib/libhdf5.[0-9].dylib ${prefix}/lib/libhdf5.[0-9][0-9].dylib ${prefix}/lib/libhdf5.[0-9][0-9][0-9].dylib 2>/dev/null)
+            hllib=$(ls ${prefix}/lib/libhdf5_hl.[0-9].dylib ${prefix}/lib/libhdf5_hl.[0-9][0-9].dylib ${prefix}/lib/libhdf5_hl.[0-9][0-9][0-9].dylib 2>/dev/null)
+            htlib=$(ls ${hdf5prefix}/lib/libhdf5_tools.[0-9].dylib ${hdf5prefix}/lib/libhdf5_tools.[0-9][0-9].dylib ${hdf5prefix}/lib/libhdf5_tools.[0-9][0-9][0-9].dylib 2>/dev/null)
             set -e
             if [[ ${dosudo} -eq 1 ]] ; then
                 sudo install_name_tool -id ${hdflib} ${hdflib}
-            else
-                install_name_tool -id ${hdflib} ${hdflib}
-            fi
-            set +e
-            hllib=$(ls ${iprefix}/lib/libhdf5_hl.[0-9].dylib ${iprefix}/lib/libhdf5_hl.[0-9][0-9].dylib ${iprefix}/lib/libhdf5_hl.[0-9][0-9][0-9].dylib 2>/dev/null)
-            set -e
-            if [[ ${dosudo} -eq 1 ]] ; then
                 sudo install_name_tool -id ${hllib} ${hllib}
                 sudo install_name_tool -change @rpath/$(basename ${hdflib}) ${hdflib} ${hllib}
+                sudo install_name_tool -id ${htlib} ${htlib}
+                sudo install_name_tool -change @rpath/$(basename ${hdflib}) ${hdflib} ${htlib}
             else
+                install_name_tool -id ${hdflib} ${hdflib}
                 install_name_tool -id ${hllib} ${hllib}
                 install_name_tool -change @rpath/$(basename ${hdflib}) ${hdflib} ${hllib}
+                install_name_tool -id ${htlib} ${htlib}
+                install_name_tool -change @rpath/$(basename ${hdflib}) ${hdflib} ${htlib}
             fi
         fi
         cd ../..
         cleanup ${base} ${zbase}
-        iprefix=${prefix}
     else
         http=http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-${hdf5%.*}/hdf5-${hdf5}/src
         download_configure_make_check_install ${base} ${zbase} ${http} " " "--with-zlib=${ZPATH} --with-szlib=${prefix} --enable-threadsafe --with-pthread=${PPATH}"
@@ -891,13 +884,8 @@ if [[ ${donetcdf4} -eq 1 ]] ; then
     export PATH=$(echo $PATH | tr ":" "\n" | grep -v netcdf | tr "\n" ":")
     if [[ "${netcdf4}" > "4.4.1" ]] ; then
         if [[ ${doparallel} -eq 1 ]] ; then
-            if [[ ${PATH} != *openmpi* ]] ; then
-                ompibase=openmpi-${openmpi}-gfortran
-                ompiprefix=${prefix}/${ompibase}
-                # ompiprefix=/usr/local/${ompibase}
-                export PATH=${PATH}:${ompiprefix}/bin
-            fi
-            printf "  Build ${base}-openmpi\n"
+            if [[ ${PATH} != *mpi* ]] ; then export PATH=${PATH}:${mpiprefix}/bin ; fi
+            printf "  Build parallel\n"
             export MPICC='mpicc'
             export MPICXX='mpicxx'
             export MPIFC='mpifort'
@@ -908,18 +896,12 @@ if [[ ${donetcdf4} -eq 1 ]] ; then
             export FC=${MPIFC}
             export F77=${MPIF77}
             export F90=${MPIF90}
-            hdf5base=hdf5-${hdf5}
-            hdf5prefix=${prefix}/${hdf5base}-openmpi
-            iprefix=${prefix}/${base}-openmpi
-        else
-            hdf5prefix=${prefix}
-            iprefix=${prefix}
         fi
+        hdf5prefix=${prefix}
         cmake_make_test_install ${base} " " "-DHDF5_ROOT=${hdf5prefix} -DENABLE_DAP_REMOTE_TESTS=OFF -DENABLE_SHARED=ON"
         cd ../..
         cleanup ${base} ${zbase}
     else
-        iprefix=${prefix}
         configure_make_check_install ${base} " " "--disable-dap-remote-tests"
         cd ..
         cleanup ${base} ${zbase}
@@ -927,7 +909,7 @@ if [[ ${donetcdf4} -eq 1 ]] ; then
     if [[ "${sys}" == "darwin" ]] ; then
         # set @rpath/lib explicitly in library because LR_RPATH is not working all the time
         set +e
-        nclib=$(ls ${iprefix}/lib/libnetcdf.[0-9].dylib ${iprefix}/lib/libnetcdf.[0-9][0-9].dylib 2>/dev/null)
+        nclib=$(ls ${prefix}/lib/libnetcdf.[0-9].dylib ${prefix}/lib/libnetcdf.[0-9][0-9].dylib 2>/dev/null)
         hdflib=$(ls ${hdf5prefix}/lib/libhdf5.[0-9].dylib ${hdf5prefix}/lib/libhdf5.[0-9][0-9].dylib ${hdf5prefix}/lib/libhdf5.[0-9][0-9][0-9].dylib 2>/dev/null)
         hllib=$(ls ${hdf5prefix}/lib/libhdf5_hl.[0-9].dylib ${hdf5prefix}/lib/libhdf5_hl.[0-9][0-9].dylib ${hdf5prefix}/lib/libhdf5_hl.[0-9][0-9][0-9].dylib 2>/dev/null)
         set -e
@@ -941,7 +923,6 @@ if [[ ${donetcdf4} -eq 1 ]] ; then
             install_name_tool -change @rpath/$(basename ${hllib}) ${hllib} ${nclib}
         fi
     fi
-    iprefix=${prefix}
 fi
 
 # build netcdf4-fortran
@@ -964,16 +945,24 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 true
                 ;;
         esac
+        hdf5prefix=${prefix}
+        netcdfcprefix=${prefix}
+        if [[ -n ${ONEAPI_ROOT} ]] ; then
+            printf "Build ${base}-oneapi\n"
+            iprefix=${prefix}/${base}-oneapi
+            export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
+            export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
+        else
+            printf "Build ${base}-$(basename ${f_comp})\n"
+            iprefix=${prefix}/${base}-$(basename ${f_comp})
+        fi
         if [[ ${doparallel} -eq 1 ]] ; then
-            if [[ ${PATH} != *openmpi* ]] ; then
-                ompibase=openmpi-${openmpi}-gfortran
-                ompiprefix=${prefix}/${ompibase}
-                # ompiprefix=/usr/local/${ompibase}
-                export PATH=${PATH}:${ompiprefix}/bin
+            if [[ ${PATH} != *mpi* ]] ; then
+                export PATH=${PATH}:${mpiprefix}/bin
             else
-                ompiprefix=$(dirname $(dirname $(which mpicc)))
+                mpiprefix=$(dirname $(dirname $(which mpicc)))
             fi
-            printf "  Build ${base}-openmpi\n"
+            printf "  Build parallel\n"
             export MPICC='mpicc'
             export MPICXX='mpicxx'
             export MPIFC='mpifort'
@@ -984,19 +973,6 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
             export FC=${MPIFC}
             export F77=${MPIF77}
             export F90=${MPIF90}
-            hdf5base=hdf5-${hdf5}
-            hdf5prefix=${prefix}/${hdf5base}-openmpi
-            netcdfcbase=netcdf-c-${netcdf4}
-            netcdfcprefix=${prefix}/${netcdfcbase}-openmpi
-            if [[ -n ${ONEAPI_ROOT} ]] ; then
-                printf "Build ${base}-openmpi-oneapi\n"
-                iprefix=${prefix}/${base}-openmpi-oneapi
-                export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
-                export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
-            else
-                printf "Build ${base}-openmpi-$(basename ${f_comp})\n"
-                iprefix=${prefix}/${base}-openmpi-$(basename ${f_comp})
-            fi
             export LD_LIBRARY_PATH=${netcdfcprefix}/lib:${LD_LIBRARY_PATH}
             ZDIR=/usr/local/opt/zstd
             if [[ -d ${ZDIR} ]] ; then
@@ -1006,24 +982,13 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 ZLIBS="-lzstd"
             fi
             cd ${base}
-            CC=${MPICC} FC=${MPIF90} F77=${MPIF77} CPPFLAGS="-I${netcdfcprefix}/include -I${hdf5prefix}/include -I${ompiprefix}/include ${ZINC}" LDFLAGS="-L${netcdfcprefix}/lib -L${hdf5prefix}/lib -L${ompiprefix}/lib ${ZLIB}" LD_LIBRARY_PATH=${netcdfcprefix}/lib:${hdf5prefix}/lib:${ompiprefix}/lib:${ZLIBDIR} LIBS="-lnetcdf -lhdf5_hl -lhdf5 -lm -lz ${ZLIBS} -lbz2 -lcurl -lxml2" ./configure --prefix=${iprefix}
+            CC=${MPICC} FC=${MPIF90} F77=${MPIF77} CPPFLAGS="-I${netcdfcprefix}/include -I${hdf5prefix}/include -I${mpiprefix}/include ${ZINC}" LDFLAGS="-L${netcdfcprefix}/lib -L${hdf5prefix}/lib -L${mpiprefix}/lib ${ZLIB}" LD_LIBRARY_PATH=${netcdfcprefix}/lib:${hdf5prefix}/lib:${mpiprefix}/lib:${ZLIBDIR} LIBS="-lnetcdf -lhdf5_hl -lhdf5 -lm -lz ${ZLIBS} -lbz2 -lcurl -lxml2" ./configure --prefix=${iprefix}
             make -j ${ncpu}
             check_test
             install
             cd ..
             iprefix=${prefix}
         else
-            hdf5prefix=${prefix}
-            netcdfcprefix=${prefix}
-            if [[ -n ${ONEAPI_ROOT} ]] ; then
-                printf "Build ${base}-oneapi\n"
-                iprefix=${prefix}/${base}-oneapi
-                export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
-                export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
-            else
-                printf "Build ${base}-$(basename ${f_comp})\n"
-                iprefix=${prefix}/${base}-$(basename ${f_comp})
-            fi
             cd ${base}
             mkdir build
             cd build
