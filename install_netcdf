@@ -207,12 +207,12 @@ done
 # Setup
 
 # Where to install
-prefix=/usr/local/openmpi-gfortran
+prefix=/usr/local
 
 # Which steps to do
 # steps are: 1. download, 2. unpack, 3. configure, make, install, 4. clean-up
 dodownload=1 # 1: curl sources, 0: skip
-docheck=2    # 1: make check, 2: make check but do not exit on errors, 0: skip
+docheck=1    # 1: make check, 2: make check but do not exit on errors, 0: skip
 dormtar=1    # 1: rm downloaded sources, 0: skip
 dosudo=1     # 1: install in ${prefix} with sudo, 0: install as user
 
@@ -233,7 +233,7 @@ dohdf5=0
 donetcdf4=0              # make check might stop, use docheck=2
   netcdf4=4.9.2
 donetcdf4_fortran=0      # make check might stop, use docheck=2
-  netcdf4_fortran=4.6.0
+  netcdf4_fortran=4.6.1
 donetcdf3=0
   netcdf3=3.6.3
 doudunits=0
@@ -845,7 +845,7 @@ if [[ ${dohdf5} -eq 1 ]] ; then
         fi
         install
         if [[ "${sys}" == "darwin" ]] ; then
-            # set @rpath/lib explicitly in library because LR_RPATH is not working all the time
+            # set @rpath/lib explicitly in library because LC_RPATH is not working all the time
             set +e
             hdflib=$(ls ${prefix}/lib/libhdf5.[0-9].dylib ${prefix}/lib/libhdf5.[0-9][0-9].dylib ${prefix}/lib/libhdf5.[0-9][0-9][0-9].dylib 2>/dev/null)
             hllib=$(ls ${prefix}/lib/libhdf5_hl.[0-9].dylib ${prefix}/lib/libhdf5_hl.[0-9][0-9].dylib ${prefix}/lib/libhdf5_hl.[0-9][0-9][0-9].dylib 2>/dev/null)
@@ -907,7 +907,7 @@ if [[ ${donetcdf4} -eq 1 ]] ; then
         cleanup ${base} ${zbase}
     fi
     if [[ "${sys}" == "darwin" ]] ; then
-        # set @rpath/lib explicitly in library because LR_RPATH is not working all the time
+        # set @rpath/lib explicitly in library because LC_RPATH is not working all the time
         set +e
         nclib=$(ls ${prefix}/lib/libnetcdf.[0-9].dylib ${prefix}/lib/libnetcdf.[0-9][0-9].dylib 2>/dev/null)
         hdflib=$(ls ${hdf5prefix}/lib/libhdf5.[0-9].dylib ${hdf5prefix}/lib/libhdf5.[0-9][0-9].dylib ${hdf5prefix}/lib/libhdf5.[0-9][0-9][0-9].dylib 2>/dev/null)
@@ -1015,6 +1015,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
                 nclib=${netcdfcprefix}/lib/$(basename ${nclib})
             fi
             # dynamic
+            echo "NC: ${nclib} ${netcdfcprefix}"
             cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${netcdfcprefix}/include
             # -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
             case ${f_comp} in
@@ -1048,16 +1049,16 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
             check_test
             install
             if [[ "${sys}" == "darwin" ]] ; then
-                # set @rpath/lib explicitly in library because LR_RPATH is not working all the time
+                # set @rpath/lib explicitly in library because LC_RPATH is not working all the time
                 set +e
                 ilib=$(ls ${iprefix}/lib/libnetcdff.[0-9].dylib ${iprefix}/lib/libnetcdff.[0-9][0-9].dylib 2>/dev/null)
                 set -e
                 if [[ ${dosudo} -eq 1 ]] ; then
-                    # sudo install_name_tool -id ${ilib} ${ilib}
-                    sudo install_name_tool -add_rpath ${iprefix}/lib ${ilib}
+                    sudo install_name_tool -id ${ilib} ${ilib}
+                    # sudo install_name_tool -add_rpath ${iprefix}/lib ${ilib}
                 else
-                    # install_name_tool -id ${ilib} ${ilib}
-                    install_name_tool -add_rpath ${iprefix}/lib ${ilib}
+                    install_name_tool -id ${ilib} ${ilib}
+                    # install_name_tool -add_rpath ${iprefix}/lib ${ilib}
                 fi
             fi
             # static - do not set compiler again
