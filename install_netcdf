@@ -270,9 +270,9 @@ doantlr=0
 donco=0
   nco=4.9.2
 doopenmpi=0
-  openmpi=4.1.4
+  openmpi=4.1.6
 dompich=0                # one check fails on macOS 13 (Ventura) but can be ignored
-  mpich=4.0.3
+  mpich=4.1.2
 
 # Python-Matplotlib
 # Georeferencing in basemap
@@ -1433,7 +1433,8 @@ if [[ ${doopenmpi} -eq 1 ]] ; then
                 aconf="--with-hwloc=internal --with-libevent=internal"
                 ;;
             *nag*)
-                bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full'"
+                # bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full'"
+                bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -unsharedf95 -ieee=full'"
                 aconf="--with-hwloc=internal --with-libevent=internal"
                 ;;
             *ifort*)
@@ -1442,7 +1443,7 @@ if [[ ${doopenmpi} -eq 1 ]] ; then
                 else
                     bconf="FC=${f_comp} FCFLAGS='-O3 -xHost -ip -no-prec-div -static-intel -assume byterecl -fp-model precise -m64'"
                 fi
-        aconf="--with-hwloc=internal --with-libevent=internal --enable-mpi-fortran=usempi"
+                aconf="--with-hwloc=internal --with-libevent=internal --enable-mpi-fortran=usempi"
                 ;;
             *)
                 printf "${pprog}: Fortran compiler not known: ${f_comp}.\n\n"
@@ -1476,6 +1477,7 @@ if [[ ${dompich} -eq 1 ]] ; then
             printf "Build ${base}-$(basename ${f_comp})\n"
             iprefix=${prefix}/${base}-$(basename ${f_comp})
         fi
+	aconf=" "
         case ${f_comp} in
             *pgfortran*) # first pgfortran then gfortran in case
                 bconf="FC=${f_comp} F77=${f_comp} FCFLAGS='-fast -tp=p7-64' FFLAGS='-fast -tp=p7-64'"
@@ -1484,7 +1486,9 @@ if [[ ${dompich} -eq 1 ]] ; then
                 bconf="FC=${f_comp} FFLAGS='-fallow-argument-mismatch' FCFLAGS='-fallow-argument-mismatch'"
                 ;;
             *nag*)
-                bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full' F77=${f_comp} FFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full'"
+                # bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -kind=byte -unsharedf95 -ieee=full' F77=${f_comp} FFLAGS='-O3 -fpp -mismatch_all -kind=byte -ieee=full'"
+                bconf="FC=${f_comp} FCFLAGS='-O3 -fpp -mismatch_all -unsharedf95 -ieee=full' F77=${f_comp} FFLAGS='-O3 -fpp -mismatch_all -ieee=full'"
+                aconf="--disable-shared"
                 ;;
             *ifort*)
                 if [[ "${sys}" == "darwin" ]] ; then
@@ -1498,7 +1502,7 @@ if [[ ${dompich} -eq 1 ]] ; then
                 continue
                 ;;
         esac
-        configure_make_check_install ${base} "${bconf}" " "
+        configure_make_check_install ${base} "${bconf}" "${aconf}"
         iprefix=${prefix}
         # clean for next fortran compiler
         make clean
