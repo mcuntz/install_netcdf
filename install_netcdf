@@ -230,9 +230,9 @@ doparallel=0             # Parallel HDF5 and netCDF4, set e.g. prefix=/usr/local
 dohdf5=0
   hdf5=1.14.0
   hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
-donetcdf4=0              # make check might stop, use docheck=2
+donetcdf4=0              # make check might stop but library works
   netcdf4=4.9.2
-donetcdf4_fortran=0      # make check might stop, use docheck=2
+donetcdf4_fortran=0      # make check might stop but library works
   netcdf4_fortran=4.6.1
 donetcdf3=0
   netcdf3=3.6.3
@@ -308,6 +308,7 @@ dohtop=0
 # fortran_compilers="gfortran nagfor pgfortran ifort"
 fortran_compilers="gfortran"
 # fortran_compilers="nagfor"
+# fortran_compilers="gfortran nagfor"
 # fortran_compilers="/opt/pgi/osx86-64/19.4/bin/pgfortran"
 # fortran_compilers="pgfortran"
 # # Standard Intel
@@ -329,6 +330,8 @@ if [[ "${sys}" == "darwin" ]] ; then
             HOMEBREW_PREFIX="/usr/local"
         fi
     fi
+    # add path of m4 binary for netcdf et al.
+    export PATH=${PATH}:${HOMEBREW_PREFIX}/opt/m4/bin
 else
     HOMEBREW_PREFIX=
 fi
