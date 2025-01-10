@@ -165,7 +165,7 @@
 # --------------------------------------------------------------------
 # Info
 
-set -e
+set -ex
 prog=$0
 pprog=$(basename ${prog})
 dprog=$(dirname ${prog})
@@ -269,10 +269,10 @@ doantlr=0
   antlr=2.7.7            # one check fails with g++ clang 7.0.x on Mac OS X 10.11 (El Capitan) but can be ignored
 donco=0
   nco=4.9.2
-doopenmpi=0
-  openmpi=4.1.6
+doopenmpi=o
+  openmpi=4.1.7
 dompich=0                # one check fails on macOS 13 (Ventura) but can be ignored
-  mpich=4.1.2
+  mpich=4.2.3
 
 # Python-Matplotlib
 # Georeferencing in basemap
@@ -1010,7 +1010,35 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
             esac
             # static - do not set compiler again
             nclib=${netcdfcprefix}/lib/libnetcdf.a
-            cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${ncdir}/include -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz -ldl -lm -lzstd -lbz2 -lcurl -lxml2"
+            if [[ "${sys}" == "darwin" ]] ; then
+                nclib=${netcdfcprefix}/lib/libnetcdf.dylib
+            else
+                nclib=${netcdfcprefix}/lib/libnetcdf.so
+            fi
+	    ncinc=${netcdfcprefix}/include
+	    ncstaticlibs="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz -ldl -lm -lzstd -lbz2 -lcurl -lxml2"
+            if [[ ! -e ${nclib} ]] ; then
+                # if netcdf-c not done with this script, try pkg-config
+		nclibl=$(pkg-config --libs-only-L netcdf)
+		nclib=${nclibl#-L}/$(basename ${nclib})
+		ncinci=$(pkg-config --cflags netcdf)
+		ncinc=${ncinci#-I}
+		ncstaticlibs=$(pkg-config --static --libs-only-l netcdf)
+		# this gives:
+		#   -lnetcdf -lhdf5_hl-shared -lhdf5-shared -lm -lz -lzstd -lbz2 -lcurl -lxml2
+		# the -shared do not exists?
+		ncstaticlibs="$(pkg-config --static --libs-only-l netcdf | sed 's/-shared//g')"
+		# ncstaticlibs="-lnetcdf -lhdf5_hl -lhdf5 -lm -lz -lzstd -lbz2 -lcurl -lxml2"
+            fi
+	    LDFLAGS="-L${prefix}/lib ${EXTRA_LDFLAGS}" \
+		   CPPFLAGS="-I${prefix}/include ${EXTRA_CPPFLAGS}" \
+		   ${CMAKE} .. -DCMAKE_INSTALL_PREFIX=${iprefix} \
+		   -DBUILD_SHARED_LIBS=OFF -DCMAKE_Fortran_COMPILER=${f_comp} \
+		   -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_LIBDIR=lib \
+		   -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST \
+		   -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON \
+		   -DnetCDF_LIBRARIES=${nclib} -DnetCDF_INCLUDE_DIR=${ncinc} \
+		   -DCMAKE_LINK_FLAGS="${ncstaticlibs}"
             case ${f_comp} in
                 *nag*)
                     # nagfor < v7119 cannot deal with .tbd files but needs dylib files
@@ -1042,23 +1070,32 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
             check_test
             install
             # dynamic
-            if [[ "${sys}" == "darwin" ]] ; then
-                nclib=${netcdfcprefix}/lib/libnetcdf.dylib
-            else
-                nclib=${netcdfcprefix}/lib/libnetcdf.so
-            fi
-            if [[ ! -e ${nclib} ]] ; then
-                # if netcdf-c does not exist, try homebrew directory
-                netcdfcprefix=${HOMEBREW_PREFIX}/opt/netcdf
-                nclib=${netcdfcprefix}/lib/$(basename ${nclib})
-            fi
             if [[ ${dosudo} -eq 1 ]] ; then
                 sudo rm -r *
             else
                 rm -r *
             fi
-            cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=${iprefix} -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON -DNETCDF_C_LIBRARY=${nclib} -DNETCDF_C_INCLUDE_DIR=${netcdfcprefix}/include
-            # -DNC_EXTRA_DEPS="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz"
+            if [[ "${sys}" == "darwin" ]] ; then
+                nclib=${netcdfcprefix}/lib/libnetcdf.dylib
+            else
+                nclib=${netcdfcprefix}/lib/libnetcdf.so
+            fi
+	    ncinc=${netcdfcprefix}/include
+            if [[ ! -e ${nclib} ]] ; then
+                # if netcdf-c not done with this script, try pkg-config
+		nclibl=$(pkg-config --libs-only-L netcdf)
+		nclib=${nclibl#-L}/$(basename ${nclib})
+		ncinci=$(pkg-config --cflags netcdf)
+		ncinc=${ncinci#-I}
+            fi
+	    LDFLAGS="-L${prefix}/lib ${EXTRA_LDFLAGS}" \
+		   CPPFLAGS="-I${prefix}/include ${EXTRA_CPPFLAGS}" \
+		   ${CMAKE} .. -DCMAKE_INSTALL_PREFIX=${iprefix} \
+		   -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} \
+		   -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_LIBDIR=lib \
+		   -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST \
+		   -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON \
+		   -DnetCDF_LIBRARIES=${nclib} -DnetCDF_INCLUDE_DIR=${ncinc}
             case ${f_comp} in
                 *nag*)
                     # nagfor < v7119 cannot deal with .tbd files but needs dylib files
