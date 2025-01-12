@@ -269,7 +269,7 @@ doantlr=0
   antlr=2.7.7            # one check fails with g++ clang 7.0.x on Mac OS X 10.11 (El Capitan) but can be ignored
 donco=0
   nco=4.9.2
-doopenmpi=o
+doopenmpi=0
   openmpi=4.1.7
 dompich=0                # one check fails on macOS 13 (Ventura) but can be ignored
   mpich=4.2.3
@@ -1001,6 +1001,9 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
 		    # they are defined in confdefs.h in C-Library
                     sed -e '/ftest/d' ../nf_test/CMakeLists.txt > CMakeLists.tmp
                     mv CMakeLists.tmp ../nf_test/CMakeLists.txt
+		    # nf_rename_var test hangs with NAG compiler
+		    sed -e '/nf_rename_var/s/         call/C         call/' ../nf_test/nf_test.F > nf_test.tmp
+		    mv nf_test.tmp ../nf_test/nf_test.F
                     export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/lib:${PPATH}/lib
                     export CPATH=${CPATH}:/usr/local/include:${PPATH}/include
                     ;;
