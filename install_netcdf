@@ -165,7 +165,7 @@
 # --------------------------------------------------------------------
 # Info
 
-set -ex
+set -e
 prog=$0
 pprog=$(basename ${prog})
 dprog=$(dirname ${prog})
@@ -231,9 +231,9 @@ dohdf5=0
   hdf5=1.14.0
   hdf5check=0            # omit tests of hdf5: tests take a very, very long time for hdf5 > 1.10
 donetcdf4=0              # make check might stop but library works
-  netcdf4=4.9.2
+  netcdf4=4.9.3
 donetcdf4_fortran=0      # make check might stop but library works
-  netcdf4_fortran=4.6.1
+  netcdf4_fortran=4.6.2
 donetcdf3=0
   netcdf3=3.6.3
 doudunits=0
@@ -939,17 +939,23 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
     export PATH=$(echo $PATH | tr ":" "\n" | grep -v netcdf | tr "\n" ":")
     # configure / make / check / install for all fortran compilers
     for f_comp in ${fortran_compilers} ; do
+	hdf5prefix=${prefix}
+	netcdfcprefix=${prefix}
         case ${f_comp} in
             *pgfortran*) # first pgfortran then gfortran in case statement
                 printf "${f_comp} not supported at the moment for netcdf-fortran after change to cmake.\n"
                 continue
                 ;;
+            *gfortran*)
+		if [[ -n ${HOMEBREW_PREFIX} ]] ; then
+		    hdf5prefix=${HOMEBREW_PREFIX}
+		    netcdfcprefix=${HOMEBREW_PREFIX}
+		fi
+                ;;
             *)
-                true
+		true
                 ;;
         esac
-        hdf5prefix=${prefix}
-        netcdfcprefix=${prefix}
         if [[ -n ${ONEAPI_ROOT} ]] ; then
             printf "Build ${base}-oneapi\n"
             iprefix=${prefix}/${base}-oneapi
@@ -991,7 +997,7 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
             install
             cd ..
             iprefix=${prefix}
-        else
+        else  # serial
             cd ${base}
             mkdir build
             cd build
@@ -1013,13 +1019,14 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
             esac
             # static - do not set compiler again
             nclib=${netcdfcprefix}/lib/libnetcdf.a
-            if [[ "${sys}" == "darwin" ]] ; then
-                nclib=${netcdfcprefix}/lib/libnetcdf.dylib
-            else
-                nclib=${netcdfcprefix}/lib/libnetcdf.so
-            fi
+            # if [[ "${sys}" == "darwin" ]] ; then
+            #     nclib=${netcdfcprefix}/lib/libnetcdf.dylib
+            # else
+            #     nclib=${netcdfcprefix}/lib/libnetcdf.so
+            # fi
 	    ncinc=${netcdfcprefix}/include
 	    ncstaticlibs="-lnetcdf -lhdf5 -lhdf5_hl -lsz -lz -ldl -lm -lzstd -lbz2 -lcurl -lxml2"
+	    ncstaticlibs="-lnetcdf -lhdf5 -lhdf5_hl -lm -lz -lzstd -lbz2 -lsz -lcurl -lxml2"
             if [[ ! -e ${nclib} ]] ; then
                 # if netcdf-c not done with this script, try pkg-config
 		nclibl=$(pkg-config --libs-only-L netcdf)
@@ -1033,6 +1040,16 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
 		ncstaticlibs="$(pkg-config --static --libs-only-l netcdf | sed 's/-shared//g')"
 		# ncstaticlibs="-lnetcdf -lhdf5_hl -lhdf5 -lm -lz -lzstd -lbz2 -lcurl -lxml2"
             fi
+            export LD_LIBRARY_PATH=${hdf5prefix}/lib:${netcdfcprefix}/lib:${LD_LIBRARY_PATH}
+	    echo LDFLAGS="-L${prefix}/lib ${EXTRA_LDFLAGS}" \
+		   CPPFLAGS="-I${prefix}/include ${EXTRA_CPPFLAGS}" \
+		   ${CMAKE} .. -DCMAKE_INSTALL_PREFIX=${iprefix} \
+		   -DBUILD_SHARED_LIBS=OFF -DCMAKE_Fortran_COMPILER=${f_comp} \
+		   -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_LIBDIR=lib \
+		   -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST \
+		   -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON \
+		   -DnetCDF_LIBRARIES=${nclib} -DnetCDF_INCLUDE_DIR=${ncinc} \
+		   -DCMAKE_LINK_FLAGS="${ncstaticlibs}"
 	    LDFLAGS="-L${prefix}/lib ${EXTRA_LDFLAGS}" \
 		   CPPFLAGS="-I${prefix}/include ${EXTRA_CPPFLAGS}" \
 		   ${CMAKE} .. -DCMAKE_INSTALL_PREFIX=${iprefix} \
@@ -1091,6 +1108,14 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
 		ncinci=$(pkg-config --cflags netcdf)
 		ncinc=${ncinci#-I}
             fi
+	    echo LDFLAGS="-L${prefix}/lib ${EXTRA_LDFLAGS}" \
+		   CPPFLAGS="-I${prefix}/include ${EXTRA_CPPFLAGS}" \
+		   ${CMAKE} .. -DCMAKE_INSTALL_PREFIX=${iprefix} \
+		   -DBUILD_SHARED_LIBS=ON -DCMAKE_Fortran_COMPILER=${f_comp} \
+		   -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_LIBDIR=lib \
+		   -DCMAKE_BUILD_TYPE=Release -DCMAKE_FIND_FRAMEWORK=LAST \
+		   -DCMAKE_VERBOSE_MAKEFILE=ON -Wno-dev -DBUILD_TESTING=ON \
+		   -DnetCDF_LIBRARIES=${nclib} -DnetCDF_INCLUDE_DIR=${ncinc}
 	    LDFLAGS="-L${prefix}/lib ${EXTRA_LDFLAGS}" \
 		   CPPFLAGS="-I${prefix}/include ${EXTRA_CPPFLAGS}" \
 		   ${CMAKE} .. -DCMAKE_INSTALL_PREFIX=${iprefix} \
