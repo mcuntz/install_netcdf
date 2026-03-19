@@ -1,6 +1,6 @@
 # install_netcdf
-Install open source packages to work with netCDF and MPI on Mac OS
-X and Linux.
+Install open source packages to work with netCDF and MPI on macOS and
+Linux.
 
 The script `install_netcdf` was initially written to install netCDF4
 (hence its name) and all its dependencies to be used with different

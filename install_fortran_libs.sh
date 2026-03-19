@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Install Fortran development libraries such as netCDF4-Fortran and
-# MPI on Mac OS X and Linux.
+# MPI on macOS and Linux.
 #
 # Libraries written in C such as netCDF4-C can be installed using one
 # compiler and can then be used in development of projects compiled
@@ -37,7 +37,7 @@
 # Note
 # - Do not untabify this script because the libtool patch will not work anymore.
 #
-# Note on Mac OS X using homebrew
+# Note on macOS using homebrew
 #   One can use homebrew to install everything except the Fortran versions. This
 #   is very practical. However, homebrew upgrades also netcdf-c to newer
 #   versions if you install or update a package that depends on it. Then the
@@ -101,7 +101,7 @@ function usage () {
     printf "${pprog} [h]\n"
     printf "\n"
     printf "Install Fortran development libraries such as netCDF4-Fortran and"
-    printf " MPI on Mac OS X and Linux.\n"
+    printf " MPI on macOS and Linux.\n"
     printf "There are no command line options."
     printf " Edit the Setup section in the script instead.\n"
     printf "\n"
