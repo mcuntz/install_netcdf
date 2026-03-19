@@ -306,9 +306,9 @@ dohtop=0
 
 # Install netcdf-fortran for which Fortran compilers. Known compilers: gfortran nagfor pgfortran ifort
 # fortran_compilers="gfortran nagfor pgfortran ifort"
-fortran_compilers="gfortran"
+# fortran_compilers="gfortran"
 # fortran_compilers="nagfor"
-# fortran_compilers="gfortran nagfor"
+fortran_compilers="gfortran nagfor"
 # fortran_compilers="/opt/pgi/osx86-64/19.4/bin/pgfortran"
 # fortran_compilers="pgfortran"
 # # Standard Intel
