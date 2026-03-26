@@ -141,14 +141,14 @@ donetcdf4_fortran=0      # make check might stop but library works
 donetcdf3=0              # currently unavailable
   netcdf3=3.6.3
 doopenmpi=0
-  openmpi=4.1.7          # 4.1.7 or 5.0.9
+  openmpi=4.1.7          # 4.1.7 or 5.0.9, v5 did not work with nagfor (macOS15, ARM64)
 dompich=0                # one check fails on macOS but can be ignored
-  mpich=5.0.0            # 4.3.2 or 5.0.0
+  mpich=4.3.2            # 4.3.2 or 5.0.0 does not work on macOS 15 (ARM64) with clang 17
 
 # Known compilers: gfortran nagfor pgfortran ifort
-# fortran_compilers="gfortran"
+fortran_compilers="gfortran"
 # fortran_compilers="nagfor"
-fortran_compilers="gfortran nagfor"
+# fortran_compilers="gfortran nagfor"
 # fortran_compilers="/opt/pgi/osx86-64/19.4/bin/pgfortran"
 # fortran_compilers="pgfortran"
 # # Standard Intel
@@ -512,11 +512,13 @@ if [[ ${donetcdf4_fortran} -eq 1 ]] ; then
             nclib=${nclibl#-L}/$(basename ${nclib})
             ncinci=$(pkg-config --cflags netcdf)
             ncinc=${ncinci#-I}
-            ncstaticlibs=$(pkg-config --static --libs-only-l netcdf)
-            # this gives:
+            # ncstaticlibs=$(pkg-config --static --libs-only-l netcdf)
+            # gives:
             #   -lnetcdf -lhdf5_hl-shared -lhdf5-shared -lm -lz -lzstd -lbz2 -lcurl -lxml2
             # the -shared do not exists?
-            ncstaticlibs="$(pkg-config --static --libs-only-l netcdf | sed 's/-shared//g')"
+	    # or it gives:
+	    #   -lnetcdf -lHDF5::HDF5 -lhdf5::hdf5_hl -lm -lz -lzstd -lbz2 -lsz -lCURL::libcurl -lxml2
+            ncstaticlibs="$(pkg-config --static --libs-only-l netcdf | sed 's/-shared//g' | sed 's/libcurl/curl/' | sed 's/-l[^ ]*::\([^ ]*\)/-l\1/g')"
             # ncstaticlibs="-lnetcdf -lhdf5_hl -lhdf5 -lm -lz -lzstd -lbz2 -lcurl -lxml2"
         fi
         export LD_LIBRARY_PATH=${hdf5prefix}/lib:${netcdfcprefix}/lib:${LD_LIBRARY_PATH}
